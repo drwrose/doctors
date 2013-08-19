@@ -61,6 +61,26 @@
     "defName": "TWELVE",
     "file": "twelve.png",
     "type": "png"
+	   },
+ 	   {
+    "defName": "TARDIS_01",
+    "file": "tardis_01.png",
+    "type": "png-trans"
+	   },
+ 	   {
+    "defName": "TARDIS_02",
+    "file": "tardis_02.png",
+    "type": "png-trans"
+	   },
+ 	   {
+    "defName": "TARDIS_03",
+    "file": "tardis_03.png",
+    "type": "png-trans"
+	   },
+ 	   {
+    "defName": "TARDIS_04",
+    "file": "tardis_04.png",
+    "type": "png-trans"
 	   }
 	  ]
 }
