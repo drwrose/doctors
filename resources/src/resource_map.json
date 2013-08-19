@@ -1,0 +1,66 @@
+
+{"friendlyVersion": "VERSION",
+ "versionDefName": "APP_RESOURCES",
+ "media": [
+	   {
+    "defName": "ONE",
+    "file": "one.png",
+    "type": "png"
+	   },
+	   {
+    "defName": "TWO",
+    "file": "two.png",
+    "type": "png"
+	   },
+	   {
+    "defName": "THREE",
+    "file": "three.png",
+    "type": "png"
+	   },
+ 	   {
+    "defName": "FOUR",
+    "file": "four.png",
+    "type": "png"
+	   },
+ 	   {
+    "defName": "FIVE",
+    "file": "five.png",
+    "type": "png"
+	   },
+ 	   {
+    "defName": "SIX",
+    "file": "six.png",
+    "type": "png"
+	   },
+ 	   {
+    "defName": "SEVEN",
+    "file": "seven.png",
+    "type": "png"
+	   },
+ 	   {
+    "defName": "EIGHT",
+    "file": "eight.png",
+    "type": "png"
+	   },
+ 	   {
+    "defName": "NINE",
+    "file": "nine.png",
+    "type": "png"
+	   },
+ 	   {
+    "defName": "TEN",
+    "file": "ten.png",
+    "type": "png"
+	   },
+ 	   {
+    "defName": "ELEVEN",
+    "file": "eleven.png",
+    "type": "png"
+	   },
+ 	   {
+    "defName": "TWELVE",
+    "file": "twelve.png",
+    "type": "png"
+	   }
+	  ]
+}
