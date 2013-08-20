@@ -2,12 +2,12 @@
 #include "pebble_app.h"
 #include "pebble_fonts.h"
 
-#define FAST_TIME 1
+//#define FAST_TIME 1
 
 #define MY_UUID { 0x22, 0x1E, 0xA6, 0x2F, 0xE2, 0xD0, 0x47, 0x25, 0x97, 0xC3, 0x7F, 0xB3, 0xA2, 0xAF, 0x4C, 0x0C }
 PBL_APP_INFO(MY_UUID,
              "12 Doctors", "drwrose",
-             1, 0, /* App version */
+             1, 1, /* App version */
              DEFAULT_MENU_ICON,
              APP_INFO_WATCH_FACE);
 
