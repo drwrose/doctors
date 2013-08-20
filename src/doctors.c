@@ -28,12 +28,14 @@ PBL_APP_INFO(MY_UUID,
 AppContextRef app_ctx;
 Window window;
 
+BmpContainer mins_background;
+
 Layer face_layer;   // The "face", in both senses (and also the hour indicator).
 Layer minute_layer; // The minutes indicator.
 
 int face_value;       // The current face on display (or transitioning into)
 bool face_transition; // True if the face is in transition
-int transition_start; // Start tick of the current transition, if active
+int transition_frame; // Frame number of current transition
 int prev_face_value;  // The face we're transitioning from
 AppTimerHandle anim_timer = APP_TIMER_INVALID_HANDLE;
 
@@ -97,16 +99,6 @@ void flip_bitmap_x(BmpContainer *image) {
   }
 }
 
-// Returns a number which increments once for each new animation frame.
-int get_anim_ticks() {
-  time_t s;
-  uint16_t ms;
-
-  // ANIM_TICK_MS per frame.
-  time_ms(&s, &ms);
-  return s * (1000 / ANIM_TICK_MS) + ms / ANIM_TICK_MS;
-}
-
 // Ensures the animation timer will fire.
 void set_anim_timer() {
   if (anim_timer != APP_TIMER_INVALID_HANDLE) {
@@ -145,7 +137,8 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     BmpContainer prev_image, curr_image, tardis_white, tardis_black;
 
     // ti ranges from 0 to NUM_TRANSITION_FRAMES over the transition.
-    ti = get_anim_ticks() - transition_start;
+    ti = transition_frame;
+    transition_frame++;
     if (ti >= NUM_TRANSITION_FRAMES) {
       ti = NUM_TRANSITION_FRAMES;
       face_transition = false;
@@ -178,7 +171,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
       graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
     }
       
-    // Finally, draw the tardis on top of the wipe line.
+    // Then, draw the tardis on top of the wipe line.
     destination.size.w = tardis_white.bmp.bounds.size.w;
     destination.size.h = tardis_white.bmp.bounds.size.h;
     destination.origin.y = 0;
@@ -193,6 +186,14 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     graphics_context_set_compositing_mode(ctx, GCompOpClear);
     graphics_draw_bitmap_in_rect(ctx, &tardis_black.bmp, destination);
     
+    // Finally, re-draw the minutes background card on top of the tardis.
+    destination.size.w = mins_background.bmp.bounds.size.w;
+    destination.size.h = mins_background.bmp.bounds.size.h;
+    destination.origin.x = SCREEN_WIDTH - destination.size.w;
+    destination.origin.y = SCREEN_HEIGHT - destination.size.h;
+    graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    graphics_draw_bitmap_in_rect(ctx, &mins_background.bmp, destination);
+
     bmp_deinit_container(&tardis_white);
     bmp_deinit_container(&tardis_black);
     bmp_deinit_container(&curr_image);
@@ -247,7 +248,7 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *t) {
 
     // We'll also start a transition animation.
     face_transition = true;
-    transition_start = get_anim_ticks();
+    transition_frame = 0;
     set_anim_timer();
   }
 }
@@ -276,6 +277,8 @@ void handle_init(AppContextRef ctx) {
 
   resource_init_current_app(&APP_RESOURCES);
 
+  bmp_init_container(RESOURCE_ID_MINS_BACKGROUND, &mins_background);
+
   layer_init(&face_layer, window.layer.frame);
   face_layer.update_proc = &face_layer_update_callback;
   layer_add_child(&window.layer, &face_layer);
@@ -288,7 +291,7 @@ void handle_init(AppContextRef ctx) {
 void handle_deinit(AppContextRef ctx) {
   (void)ctx;
 
-  // Nothing to do right now.
+  bmp_deinit_container(&mins_background);
 }
 
 void pbl_main(void *params) {
