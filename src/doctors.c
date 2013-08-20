@@ -11,6 +11,20 @@ PBL_APP_INFO(MY_UUID,
              DEFAULT_MENU_ICON,
              APP_INFO_WATCH_FACE);
 
+
+#define SCREEN_WIDTH 144
+#define SCREEN_HEIGHT 168
+
+// Number of milliseconds per animation frame
+#define ANIM_TICK_MS 50
+
+// Number of frames of animation
+#define NUM_TRANSITION_FRAMES 24
+
+// Number of frames for which the tardis is partially offscreen on
+// either left or right
+#define NUM_FRAMES_OFFSCREEN 5
+
 AppContextRef app_ctx;
 Window window;
 
@@ -21,7 +35,7 @@ int face_value;       // The current face on display (or transitioning into)
 bool face_transition; // True if the face is in transition
 int transition_start; // Start tick of the current transition, if active
 int prev_face_value;  // The face we're transitioning from
-AppTimerHandler anim_timer = APP_TIMER_INVALID_HANDLE;
+AppTimerHandle anim_timer = APP_TIMER_INVALID_HANDLE;
 
 int minute_value;    // The current minute value displayed
 
@@ -41,20 +55,20 @@ int face_resource_ids[12] = {
 };
 
 typedef struct {
-  int resource_id_white;
-  int resource_id_black;
+  int white;
+  int black;
   bool flip_x;
 } TardisFrame;
 
-static const int num_tardis_frames = 7;
-TardisFrame tardis_frames[num_tardis_frames] = {
+#define NUM_TARDIS_FRAMES 7
+TardisFrame tardis_frames[NUM_TARDIS_FRAMES] = {
   { RESOURCE_ID_TARDIS_01_WHITE, RESOURCE_ID_TARDIS_01_BLACK, false },
   { RESOURCE_ID_TARDIS_02_WHITE, RESOURCE_ID_TARDIS_02_BLACK, false },
   { RESOURCE_ID_TARDIS_03_WHITE, RESOURCE_ID_TARDIS_03_BLACK, false },
   { RESOURCE_ID_TARDIS_04_WHITE, RESOURCE_ID_TARDIS_04_BLACK, false },
   { RESOURCE_ID_TARDIS_04_WHITE, RESOURCE_ID_TARDIS_04_BLACK, true },
   { RESOURCE_ID_TARDIS_03_WHITE, RESOURCE_ID_TARDIS_03_BLACK, true },
-  { RESOURCE_ID_TARDIS_02_WHITE, RESOURCE_ID_TARDIS_02_BLACK, true },
+  { RESOURCE_ID_TARDIS_02_WHITE, RESOURCE_ID_TARDIS_02_BLACK, true }
 };
 
 // Reverse the bits of a byte.
@@ -65,7 +79,7 @@ uint8_t reverse_bits(uint8_t b) {
 
 // Horizontally flips the indicated BmpContainer in-place.  Requires
 // that the width be a multiple of 8 pixels.
-void flip_bitmap_x(BmpContainer *image, int *cx) {
+void flip_bitmap_x(BmpContainer *image) {
   int height = image->bmp.bounds.size.h;
   int width = image->bmp.bounds.size.w;  // multiple of 8, by our convention.
   int width_bytes = width / 8;
@@ -81,30 +95,25 @@ void flip_bitmap_x(BmpContainer *image, int *cx) {
       row[x2] = b;
     }
   }
-
-  if (cx != NULL) {
-    *cx = width- 1 - *cx;
-  }
 }
 
 // Returns a number which increments once for each new animation frame.
-int get_anim_tick() {
+int get_anim_ticks() {
   time_t s;
   uint16_t ms;
-  int result;
 
-  // 100 ms per frame.
+  // ANIM_TICK_MS per frame.
   time_ms(&s, &ms);
-  return s * 10 + ms / 100;
+  return s * (1000 / ANIM_TICK_MS) + ms / ANIM_TICK_MS;
 }
 
 // Ensures the animation timer will fire.
 void set_anim_timer() {
   if (anim_timer != APP_TIMER_INVALID_HANDLE) {
-    app_timer_cancel_event(anim_timer);
+    app_timer_cancel_event(app_ctx, anim_timer);
     anim_timer = APP_TIMER_INVALID_HANDLE;
   }
-  anim_timer = app_timer_send_event(app_ctx, 100, 0);
+  anim_timer = app_timer_send_event(app_ctx, ANIM_TICK_MS, 0);
 }
 
 void clear_anim_timer() {
@@ -124,40 +133,68 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     destination.origin.x = 0;
     destination.origin.y = 0;
     
-    //graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    graphics_context_set_compositing_mode(ctx, GCompOpAssign);
     graphics_draw_bitmap_in_rect(ctx, &image.bmp, destination);
     
     bmp_deinit_container(&image);
 
   } else {
     // The complex case: we animate a transition from one face to another.
-    static const int num_ticks = 10;
-    int ti;
-    float t;
-    BmpContainer prev_image, curr_image;
+    int ti, wipe_x;
+    int tardis_frame;
+    BmpContainer prev_image, curr_image, tardis_white, tardis_black;
 
-    // ti ranges from 0 to num_ticks over the transition.
+    // ti ranges from 0 to NUM_TRANSITION_FRAMES over the transition.
     ti = get_anim_ticks() - transition_start;
-    if (ti >= num_ticks) {
-      ti = num_ticks;
+    if (ti >= NUM_TRANSITION_FRAMES) {
+      ti = NUM_TRANSITION_FRAMES;
       face_transition = false;
     }
+    wipe_x = SCREEN_WIDTH - (ti - NUM_FRAMES_OFFSCREEN) * SCREEN_WIDTH / (NUM_TRANSITION_FRAMES - NUM_FRAMES_OFFSCREEN * 2);
+    tardis_frame = ti % NUM_TARDIS_FRAMES;
 
     bmp_init_container(face_resource_ids[prev_face_value], &prev_image);
     bmp_init_container(face_resource_ids[face_value], &curr_image);
+    bmp_init_container(tardis_frames[tardis_frame].white, &tardis_white);
+    bmp_init_container(tardis_frames[tardis_frame].black, &tardis_black);
+    
+    if (tardis_frames[tardis_frame].flip_x) {
+      flip_bitmap_x(&tardis_white);
+      flip_bitmap_x(&tardis_black);
+    }
 
     GRect destination = layer_get_frame(me);
     destination.origin.x = 0;
     destination.origin.y = 0;
     
-    // First, draw the previous face.
-    graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
-
-    // Then, draw the new face on top of it, reducing the size to wipe
-    // from right to left.
-    destination.size.w = (num_ticks - ti) * destination.size.w / num_ticks;
+    // First, draw the new face.
+    graphics_context_set_compositing_mode(ctx, GCompOpAssign);
     graphics_draw_bitmap_in_rect(ctx, &curr_image.bmp, destination);
 
+    if (wipe_x > 0) {
+      // Then, draw the previous face on top of it, reducing the size to wipe
+      // from right to left.
+      destination.size.w = wipe_x;
+      graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
+    }
+      
+    // Finally, draw the tardis on top of the wipe line.
+    destination.size.w = tardis_white.bmp.bounds.size.w;
+    destination.size.h = tardis_white.bmp.bounds.size.h;
+    destination.origin.y = 0;
+    destination.origin.x = wipe_x - destination.size.w / 2;
+    graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    graphics_draw_bitmap_in_rect(ctx, &tardis_white.bmp, destination);
+    
+    destination.size.w = tardis_black.bmp.bounds.size.w;
+    destination.size.h = tardis_black.bmp.bounds.size.h;
+    destination.origin.y = 0;
+    destination.origin.x = wipe_x - destination.size.w / 2;
+    graphics_context_set_compositing_mode(ctx, GCompOpClear);
+    graphics_draw_bitmap_in_rect(ctx, &tardis_black.bmp, destination);
+    
+    bmp_deinit_container(&tardis_white);
+    bmp_deinit_container(&tardis_black);
     bmp_deinit_container(&curr_image);
     bmp_deinit_container(&prev_image);
   }
@@ -210,7 +247,7 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *t) {
 
     // We'll also start a transition animation.
     face_transition = true;
-    transition_start = get_anim_tick();
+    transition_start = get_anim_ticks();
     set_anim_timer();
   }
 }
