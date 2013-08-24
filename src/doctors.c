@@ -28,7 +28,9 @@ BmpContainer mins_background;
 
 // These are filled in only during a transition (while face_transition
 // is true).
+bool has_prev_image = false;
 BmpContainer prev_image;
+bool has_curr_image = false;
 BmpContainer curr_image;
 
 // The mask and image for the moving sprite across the wipe.
@@ -36,6 +38,8 @@ bool has_sprite_mask = false;
 BmpContainer sprite_mask;
 bool has_sprite = false;
 BmpContainer sprite;
+
+// The horizontal center point of the sprite.
 int sprite_cx = 0;
 
 
@@ -47,7 +51,7 @@ bool face_transition; // True if the face is in transition
 bool wipe_direction;  // True for left-to-right, False for right-to-left.
 bool anim_direction;  // True to reverse tardis rotation.
 int transition_frame; // Frame number of current transition
-int prev_face_value;  // The face we're transitioning from
+int prev_face_value;  // The face we're transitioning from, or -1.
 AppTimerHandle anim_timer = APP_TIMER_INVALID_HANDLE;
 
 int minute_value;    // The current minute value displayed
@@ -119,11 +123,17 @@ void set_anim_timer() {
 }
 
 void stop_transition() {
-  if (face_transition) {
-    // Release the transition resources.
+  face_transition = false;
+
+  // Release the transition resources.
+  if (has_curr_image) {
     bmp_deinit_container(&curr_image);
+    has_curr_image = false;
+  }
+
+  if (has_prev_image) {
     bmp_deinit_container(&prev_image);
-    face_transition = false;
+    has_prev_image = false;
   }
 
   if (has_sprite_mask) {
@@ -152,11 +162,17 @@ void start_transition(int face_new) {
   prev_face_value = face_value;
   face_value = face_new;
 
-  // Initialize the transition resources.
-  bmp_init_container(face_resource_ids[prev_face_value], &prev_image);
-  bmp_init_container(face_resource_ids[face_value], &curr_image);
   face_transition = true;
   transition_frame = 0;
+
+  // Initialize the transition resources.
+  if (prev_face_value >= 0) {
+    bmp_init_container(face_resource_ids[prev_face_value], &prev_image);
+    has_prev_image = true;
+  }
+
+  bmp_init_container(face_resource_ids[face_value], &curr_image);
+  has_curr_image = true;
 
   static const int num_sprites = 3;
 
@@ -227,17 +243,19 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 
   if (!face_transition) {
     // The simple case: no transition, so just hold the current frame.
-    BmpContainer image;
-    bmp_init_container(face_resource_ids[face_value], &image);
+    if (face_value >= 0) {
+      BmpContainer image;
+      bmp_init_container(face_resource_ids[face_value], &image);
     
-    GRect destination = layer_get_frame(me);
-    destination.origin.x = 0;
-    destination.origin.y = 0;
-    
-    graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-    graphics_draw_bitmap_in_rect(ctx, &image.bmp, destination);
-    
-    bmp_deinit_container(&image);
+      GRect destination = layer_get_frame(me);
+      destination.origin.x = 0;
+      destination.origin.y = 0;
+      
+      graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+      graphics_draw_bitmap_in_rect(ctx, &image.bmp, destination);
+      
+      bmp_deinit_container(&image);
+    }
 
   } else {
     // The complex case: we animate a transition from one face to another.
@@ -263,28 +281,39 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     if (wipe_direction) {
       // First, draw the previous face.
       if (wipe_x < SCREEN_WIDTH) {
-        graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-        graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
+        if (has_prev_image) {
+          graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+          graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
+        }
       }
       
       if (wipe_x > 0) {
         // Then, draw the new face on top of it, reducing the size to wipe
         // from right to left.
-        destination.size.w = wipe_x;
-        graphics_draw_bitmap_in_rect(ctx, &curr_image.bmp, destination);
+        if (has_curr_image) {
+          destination.size.w = wipe_x;
+          graphics_draw_bitmap_in_rect(ctx, &curr_image.bmp, destination);
+        }
       }
     } else {
       // First, draw the new face.
       if (wipe_x < SCREEN_WIDTH) {
-        graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-        graphics_draw_bitmap_in_rect(ctx, &curr_image.bmp, destination);
+        if (has_curr_image) {
+          graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+          graphics_draw_bitmap_in_rect(ctx, &curr_image.bmp, destination);
+        }
       }
       
       if (wipe_x > 0) {
         // Then, draw the previous face on top of it, reducing the size to wipe
         // from right to left.
         destination.size.w = wipe_x;
-        graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
+        if (has_prev_image) {
+          graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
+        } else {
+          graphics_context_set_fill_color(ctx, GColorWhite);
+          graphics_fill_rect(ctx, destination, 0, GCornerNone);
+        }
       }
     }
 
@@ -390,17 +419,16 @@ void handle_init(AppContextRef ctx) {
   PblTm pbltime;
 
   srand(time(NULL));
+  resource_init_current_app(&APP_RESOURCES);
+
+  face_transition = false;
+  get_time(&pbltime);
+  face_value = -1;
+  minute_value = pbltime.tm_min;
   
   app_ctx = ctx;
   window_init(&window, "12 Doctors");
-  window_stack_push(&window, true /* Animated */);
-
-  get_time(&pbltime);
-  face_value = pbltime.tm_hour % 12;
-  face_transition = false;
-  minute_value = pbltime.tm_min;
-
-  resource_init_current_app(&APP_RESOURCES);
+  window_stack_push(&window, false /* not animated */);
 
   bmp_init_container(RESOURCE_ID_MINS_BACKGROUND, &mins_background);
 
@@ -411,6 +439,8 @@ void handle_init(AppContextRef ctx) {
   layer_init(&minute_layer, GRect(95, 134, 54, 35));
   minute_layer.update_proc = &minute_layer_update_callback;
   layer_add_child(&window.layer, &minute_layer);
+
+  start_transition(pbltime.tm_hour % 12);
 }
 
 void handle_deinit(AppContextRef ctx) {
