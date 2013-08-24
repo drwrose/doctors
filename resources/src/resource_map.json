@@ -83,6 +83,11 @@
     "type": "png-trans"
 	   },
  	   {
+    "defName": "K9",
+    "file": "k9.png",
+    "type": "png-trans"
+	   },
+ 	   {
     "defName": "MINS_BACKGROUND",
     "file": "mins_background.png",
     "type": "png"

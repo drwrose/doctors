@@ -2,7 +2,7 @@
 #include "pebble_app.h"
 #include "pebble_fonts.h"
 
-//#define FAST_TIME 1
+#define FAST_TIME 1
 
 #define MY_UUID { 0x22, 0x1E, 0xA6, 0x2F, 0xE2, 0xD0, 0x47, 0x25, 0x97, 0xC3, 0x7F, 0xB3, 0xA2, 0xAF, 0x4C, 0x0C }
 PBL_APP_INFO(MY_UUID,
@@ -196,6 +196,69 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 
     bmp_deinit_container(&tardis_white);
     bmp_deinit_container(&tardis_black);
+    bmp_deinit_container(&curr_image);
+    bmp_deinit_container(&prev_image);
+
+  } else {
+    // K9 wipe.
+    int ti, wipe_x;
+    BmpContainer prev_image, curr_image, k9_white, k9_black;
+    int k9_center = 41;
+    int k9_width = 144;
+    int wipe_width = SCREEN_WIDTH + k9_width;
+
+    // ti ranges from 0 to NUM_TRANSITION_FRAMES over the transition.
+    ti = transition_frame;
+    transition_frame++;
+    if (ti >= NUM_TRANSITION_FRAMES) {
+      ti = NUM_TRANSITION_FRAMES;
+      face_transition = false;
+    }
+
+    wipe_x = wipe_width - ti * wipe_width / NUM_TRANSITION_FRAMES;
+    wipe_x = wipe_x - (k9_width - k9_center);
+
+    bmp_init_container(face_resource_ids[prev_face_value], &prev_image);
+    bmp_init_container(face_resource_ids[face_value], &curr_image);
+    bmp_init_container(RESOURCE_ID_K9_WHITE, &k9_white);
+    bmp_init_container(RESOURCE_ID_K9_BLACK, &k9_black);
+
+    GRect destination = layer_get_frame(me);
+    destination.origin.x = 0;
+    destination.origin.y = 0;
+    
+    // First, draw the new face.
+    graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+    graphics_draw_bitmap_in_rect(ctx, &curr_image.bmp, destination);
+
+    if (wipe_x > 0) {
+      // Then, draw the previous face on top of it, reducing the size to wipe
+      // from right to left.
+      destination.size.w = wipe_x;
+      graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
+    }
+      
+    // Then, draw K9 on top of the wipe line.
+    destination.size.w = k9_white.bmp.bounds.size.w;
+    destination.size.h = k9_white.bmp.bounds.size.h;
+    destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
+    destination.origin.x = wipe_x - 41;
+    graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    graphics_draw_bitmap_in_rect(ctx, &k9_white.bmp, destination);
+    
+    graphics_context_set_compositing_mode(ctx, GCompOpClear);
+    graphics_draw_bitmap_in_rect(ctx, &k9_black.bmp, destination);
+    
+    // Finally, re-draw the minutes background card on top of K9.
+    destination.size.w = mins_background.bmp.bounds.size.w;
+    destination.size.h = mins_background.bmp.bounds.size.h;
+    destination.origin.x = SCREEN_WIDTH - destination.size.w;
+    destination.origin.y = SCREEN_HEIGHT - destination.size.h;
+    graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    graphics_draw_bitmap_in_rect(ctx, &mins_background.bmp, destination);
+
+    bmp_deinit_container(&k9_white);
+    bmp_deinit_container(&k9_black);
     bmp_deinit_container(&curr_image);
     bmp_deinit_container(&prev_image);
   }
