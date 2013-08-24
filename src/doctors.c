@@ -2,7 +2,7 @@
 #include "pebble_app.h"
 #include "pebble_fonts.h"
 
-//#define FAST_TIME 1
+#define FAST_TIME 1
 
 #define MY_UUID { 0x22, 0x1E, 0xA6, 0x2F, 0xE2, 0xD0, 0x47, 0x25, 0x97, 0xC3, 0x7F, 0xB3, 0xA2, 0xAF, 0x4C, 0x0C }
 PBL_APP_INFO(MY_UUID,
@@ -23,12 +23,13 @@ PBL_APP_INFO(MY_UUID,
 
 // Number of frames for which the tardis is partially offscreen on
 // either left or right
-#define NUM_FRAMES_OFFSCREEN 5
+#define NUM_FRAMES_OFFSCREEN 6
 
 AppContextRef app_ctx;
 Window window;
 
 BmpContainer mins_background;
+BmpContainer tardis_mask;
 
 Layer face_layer;   // The "face", in both senses (and also the hour indicator).
 Layer minute_layer; // The minutes indicator.
@@ -57,20 +58,19 @@ int face_resource_ids[12] = {
 };
 
 typedef struct {
-  int white;
-  int black;
+  int tardis;
   bool flip_x;
 } TardisFrame;
 
 #define NUM_TARDIS_FRAMES 7
 TardisFrame tardis_frames[NUM_TARDIS_FRAMES] = {
-  { RESOURCE_ID_TARDIS_01_WHITE, RESOURCE_ID_TARDIS_01_BLACK, false },
-  { RESOURCE_ID_TARDIS_02_WHITE, RESOURCE_ID_TARDIS_02_BLACK, false },
-  { RESOURCE_ID_TARDIS_03_WHITE, RESOURCE_ID_TARDIS_03_BLACK, false },
-  { RESOURCE_ID_TARDIS_04_WHITE, RESOURCE_ID_TARDIS_04_BLACK, false },
-  { RESOURCE_ID_TARDIS_04_WHITE, RESOURCE_ID_TARDIS_04_BLACK, true },
-  { RESOURCE_ID_TARDIS_03_WHITE, RESOURCE_ID_TARDIS_03_BLACK, true },
-  { RESOURCE_ID_TARDIS_02_WHITE, RESOURCE_ID_TARDIS_02_BLACK, true }
+  { RESOURCE_ID_TARDIS_01, false },
+  { RESOURCE_ID_TARDIS_02, false },
+  { RESOURCE_ID_TARDIS_03, false },
+  { RESOURCE_ID_TARDIS_04, false },
+  { RESOURCE_ID_TARDIS_04, true },
+  { RESOURCE_ID_TARDIS_03, true },
+  { RESOURCE_ID_TARDIS_02, true }
 };
 
 // Reverse the bits of a byte.
@@ -134,7 +134,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     // The complex case: we animate a transition from one face to another.
     int ti, wipe_x;
     int tardis_frame;
-    BmpContainer prev_image, curr_image, tardis_white, tardis_black;
+    BmpContainer prev_image, curr_image, tardis;
 
     // ti ranges from 0 to NUM_TRANSITION_FRAMES over the transition.
     ti = transition_frame;
@@ -148,12 +148,10 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 
     bmp_init_container(face_resource_ids[prev_face_value], &prev_image);
     bmp_init_container(face_resource_ids[face_value], &curr_image);
-    bmp_init_container(tardis_frames[tardis_frame].white, &tardis_white);
-    bmp_init_container(tardis_frames[tardis_frame].black, &tardis_black);
+    bmp_init_container(tardis_frames[tardis_frame].tardis, &tardis);
     
     if (tardis_frames[tardis_frame].flip_x) {
-      flip_bitmap_x(&tardis_white);
-      flip_bitmap_x(&tardis_black);
+      flip_bitmap_x(&tardis);
     }
 
     GRect destination = layer_get_frame(me);
@@ -170,21 +168,23 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
       destination.size.w = wipe_x;
       graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
     }
+
+    //    wipe_x = SCREEN_WIDTH / 2;// hack
       
     // Then, draw the tardis on top of the wipe line.
-    destination.size.w = tardis_white.bmp.bounds.size.w;
-    destination.size.h = tardis_white.bmp.bounds.size.h;
-    destination.origin.y = 0;
-    destination.origin.x = wipe_x - destination.size.w / 2;
-    graphics_context_set_compositing_mode(ctx, GCompOpOr);
-    graphics_draw_bitmap_in_rect(ctx, &tardis_white.bmp, destination);
-    
-    destination.size.w = tardis_black.bmp.bounds.size.w;
-    destination.size.h = tardis_black.bmp.bounds.size.h;
+    destination.size.w = tardis_mask.bmp.bounds.size.w;
+    destination.size.h = tardis_mask.bmp.bounds.size.h;
     destination.origin.y = 0;
     destination.origin.x = wipe_x - destination.size.w / 2;
     graphics_context_set_compositing_mode(ctx, GCompOpClear);
-    graphics_draw_bitmap_in_rect(ctx, &tardis_black.bmp, destination);
+    graphics_draw_bitmap_in_rect(ctx, &tardis_mask.bmp, destination);
+    
+    destination.size.w = tardis.bmp.bounds.size.w;
+    destination.size.h = tardis.bmp.bounds.size.h;
+    destination.origin.y = 0;
+    destination.origin.x = wipe_x - destination.size.w / 2;
+    graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    graphics_draw_bitmap_in_rect(ctx, &tardis.bmp, destination);
     
     // Finally, re-draw the minutes background card on top of the tardis.
     destination.size.w = mins_background.bmp.bounds.size.w;
@@ -194,8 +194,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     graphics_context_set_compositing_mode(ctx, GCompOpOr);
     graphics_draw_bitmap_in_rect(ctx, &mins_background.bmp, destination);
 
-    bmp_deinit_container(&tardis_white);
-    bmp_deinit_container(&tardis_black);
+    bmp_deinit_container(&tardis);
     bmp_deinit_container(&curr_image);
     bmp_deinit_container(&prev_image);
   }
@@ -278,6 +277,7 @@ void handle_init(AppContextRef ctx) {
   resource_init_current_app(&APP_RESOURCES);
 
   bmp_init_container(RESOURCE_ID_MINS_BACKGROUND, &mins_background);
+  bmp_init_container(RESOURCE_ID_TARDIS_MASK, &tardis_mask);
 
   layer_init(&face_layer, window.layer.frame);
   face_layer.update_proc = &face_layer_update_callback;
@@ -291,6 +291,7 @@ void handle_init(AppContextRef ctx) {
 void handle_deinit(AppContextRef ctx) {
   (void)ctx;
 
+  bmp_deinit_container(&tardis_mask);
   bmp_deinit_container(&mins_background);
 }
 
