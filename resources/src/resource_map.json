@@ -98,6 +98,16 @@
     "type": "png"
 	   },
  	   {
+    "defName": "DALEK",
+    "file": "dalek.png",
+    "type": "png"
+	   },
+ 	   {
+    "defName": "DALEK_MASK",
+    "file": "dalek_mask.png",
+    "type": "png"
+	   },
+ 	   {
     "defName": "MINS_BACKGROUND",
     "file": "mins_background.png",
     "type": "png"

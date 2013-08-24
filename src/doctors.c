@@ -158,12 +158,14 @@ void start_transition(int face_new) {
   face_transition = true;
   transition_frame = 0;
 
-  static const int num_sprites = 2;
+  static const int num_sprites = 3;
 
   // Sure, it's not 100% even, but whatever.
   wipe_direction = (rand() % 2) != 0;
   int sprite_sel = (rand() % num_sprites);
   anim_direction = (rand() % 2) != 0;
+
+  //  sprite_sel = 2;  // hack
   
   // Initialize the sprite.
   switch (sprite_sel) {
@@ -182,6 +184,21 @@ void start_transition(int face_new) {
     has_sprite = true;
     bmp_init_container(RESOURCE_ID_K9, &sprite);
     sprite_cx = 41;
+
+    if (wipe_direction) {
+      flip_bitmap_x(&sprite_mask);
+      flip_bitmap_x(&sprite);
+      sprite_cx = sprite.bmp.bounds.size.w - sprite_cx;
+    }
+    break;
+
+  case 2:
+    // Dalek.
+    has_sprite_mask = true;
+    bmp_init_container(RESOURCE_ID_DALEK_MASK, &sprite_mask);
+    has_sprite = true;
+    bmp_init_container(RESOURCE_ID_DALEK, &sprite);
+    sprite_cx = 74;
 
     if (wipe_direction) {
       flip_bitmap_x(&sprite_mask);
