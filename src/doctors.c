@@ -4,6 +4,8 @@
 
 //#define FAST_TIME 1
 
+#define HOUR_BUZZER 1
+
 #define MY_UUID { 0x22, 0x1E, 0xA6, 0x2F, 0xE2, 0xD0, 0x47, 0x25, 0x97, 0xC3, 0x7F, 0xB3, 0xA2, 0xAF, 0x4C, 0x0C }
 PBL_APP_INFO(MY_UUID,
              "12 Doctors", "drwrose",
@@ -14,6 +16,9 @@ PBL_APP_INFO(MY_UUID,
 
 #define SCREEN_WIDTH 144
 #define SCREEN_HEIGHT 168
+
+// Amount of time, in seconds, to ring the buzzer before the hour.
+#define BUZZER_ANTICIPATE 2
 
 // Number of milliseconds per animation frame
 #define ANIM_TICK_MS 50
@@ -55,6 +60,7 @@ int prev_face_value;  // The face we're transitioning from, or -1.
 AppTimerHandle anim_timer = APP_TIMER_INVALID_HANDLE;
 
 int minute_value;    // The current minute value displayed
+int last_buzz_hour;  // The hour at which we last sounded the buzzer.
 
 int face_resource_ids[12] = {
   RESOURCE_ID_TWELVE,
@@ -113,13 +119,52 @@ void flip_bitmap_x(BmpContainer *image) {
   }
 }
 
-// Ensures the animation timer will fire.
-void set_anim_timer() {
+int check_buzzer() {
+  // Rings the buzzer if it's almost time for the hour to change.
+  // Returns the amount of time in ms to wait for the next buzzer.
+#ifdef HOUR_BUZZER
+  time_t now = time(NULL);  
+
+  // What hour is it right now, including the anticipate offset?
+  int this_hour = (now + BUZZER_ANTICIPATE) / 3600;
+  if (this_hour != last_buzz_hour) {
+    if (last_buzz_hour != -1) {
+      // Time to ring the buzzer.
+      vibes_short_pulse();
+    }
+
+    // Now make sure we don't ring the buzzer again for this hour.
+    last_buzz_hour = this_hour;
+  }
+
+  int next_hour = this_hour + 1;
+  int next_buzzer_time = next_hour * 3600 - BUZZER_ANTICIPATE;
+  return (next_buzzer_time - now) * 1000;
+#else  // HOUR_BUZZER
+  return -1;
+#endif  // HOUR_BUZZER
+}
+
+// Ensures the animation/buzzer timer is running.
+void set_next_timer() {
   if (anim_timer != APP_TIMER_INVALID_HANDLE) {
     app_timer_cancel_event(app_ctx, anim_timer);
     anim_timer = APP_TIMER_INVALID_HANDLE;
   }
-  anim_timer = app_timer_send_event(app_ctx, ANIM_TICK_MS, 0);
+  int next_buzzer_ms = check_buzzer();
+
+  if (face_transition) {
+    // If the animation is underway, we need to fire the timer at
+    // ANIM_TICK_MS intervals.
+    anim_timer = app_timer_send_event(app_ctx, ANIM_TICK_MS, 0);
+
+  } else {
+#ifdef HOUR_BUZZER
+    // Otherwise, we only need a timer to tell us to buzz at (almost)
+    // the top of the hour.
+    anim_timer = app_timer_send_event(app_ctx, next_buzzer_ms, 0);
+#endif  // HOUR_BUZZER
+  }
 }
 
 void stop_transition() {
@@ -153,7 +198,7 @@ void stop_transition() {
   }
 }
 
-void start_transition(int face_new) {
+void start_transition(int face_new, bool force_tardis) {
   if (face_transition) {
     stop_transition();
   }
@@ -175,13 +220,20 @@ void start_transition(int face_new) {
   has_curr_image = true;
 
   static const int num_sprites = 3;
+  int sprite_sel;
 
-  // Sure, it's not 100% even, but whatever.
-  wipe_direction = (rand() % 2) != 0;
-  int sprite_sel = (rand() % num_sprites);
-  anim_direction = (rand() % 2) != 0;
+  if (force_tardis) {
+    // Force the right-to-left TARDIS transition at startup.
+    wipe_direction = false;
+    sprite_sel = 0;
+    anim_direction = false;
 
-  //  sprite_sel = 2;  // hack
+  } else {
+    // Choose a random transition at the top of the hour.
+    wipe_direction = (rand() % 2) != 0;    // Sure, it's not 100% even, but whatever.
+    sprite_sel = (rand() % num_sprites);
+    anim_direction = (rand() % 2) != 0;
+  }
   
   // Initialize the sprite.
   switch (sprite_sel) {
@@ -226,7 +278,7 @@ void start_transition(int face_new) {
 
   // Start the transition timer.
   layer_mark_dirty(&face_layer);
-  set_anim_timer();
+  set_next_timer();
 }
   
 void face_layer_update_callback(Layer *me, GContext* ctx) {
@@ -284,6 +336,9 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
         if (has_prev_image) {
           graphics_context_set_compositing_mode(ctx, GCompOpAssign);
           graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
+        } else {
+          graphics_context_set_fill_color(ctx, GColorBlack);
+          graphics_fill_rect(ctx, destination, 0, GCornerNone);
         }
       }
       
@@ -311,7 +366,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
         if (has_prev_image) {
           graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
         } else {
-          graphics_context_set_fill_color(ctx, GColorWhite);
+          graphics_context_set_fill_color(ctx, GColorBlack);
           graphics_fill_rect(ctx, destination, 0, GCornerNone);
         }
       }
@@ -384,6 +439,11 @@ void minute_layer_update_callback(Layer *me, GContext* ctx) {
 
 // Update the watch as time passes.
 void handle_tick(AppContextRef ctx, PebbleTickEvent *t) {
+  if (face_value == -1) {
+    // We haven't loaded yet.
+    return;
+  }
+
   int face_new;
   int minute_new;
 
@@ -400,19 +460,21 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *t) {
     layer_mark_dirty(&minute_layer);
   }
 
-  if (face_new != face_value) {
-    start_transition(face_new);
+  if (face_new != face_value && !face_transition) {
+    start_transition(face_new, false);
   }
+
+  set_next_timer();
 }
 
-// Triggered at ANIM_TICK_MS intervals for transition animations.
+// Triggered at ANIM_TICK_MS intervals for transition animations; also
+// triggered occasionally to check the hour buzzer.
 void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
   if (face_transition) {
     layer_mark_dirty(&face_layer);
-
-    // Continue the timer while the transition is in effect.
-    set_anim_timer();
   }
+
+  set_next_timer();
 }
 
 void handle_init(AppContextRef ctx) {
@@ -424,6 +486,7 @@ void handle_init(AppContextRef ctx) {
   face_transition = false;
   get_time(&pbltime);
   face_value = -1;
+  last_buzz_hour = -1;
   minute_value = pbltime.tm_min;
   
   app_ctx = ctx;
@@ -440,7 +503,7 @@ void handle_init(AppContextRef ctx) {
   minute_layer.update_proc = &minute_layer_update_callback;
   layer_add_child(&window.layer, &minute_layer);
 
-  start_transition(pbltime.tm_hour % 12);
+  start_transition(pbltime.tm_hour % 12, true);
 }
 
 void handle_deinit(AppContextRef ctx) {
