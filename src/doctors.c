@@ -21,21 +21,31 @@ PBL_APP_INFO(MY_UUID,
 // Number of frames of animation
 #define NUM_TRANSITION_FRAMES 24
 
-// Number of frames for which the tardis is partially offscreen on
-// either left or right
-#define NUM_FRAMES_OFFSCREEN 6
-
 AppContextRef app_ctx;
 Window window;
 
 BmpContainer mins_background;
-BmpContainer tardis_mask;
+
+// These are filled in only during a transition (while face_transition
+// is true).
+BmpContainer prev_image;
+BmpContainer curr_image;
+
+// The mask and image for the moving sprite across the wipe.
+bool has_sprite_mask = false;
+BmpContainer sprite_mask;
+bool has_sprite = false;
+BmpContainer sprite;
+int sprite_cx = 0;
+
 
 Layer face_layer;   // The "face", in both senses (and also the hour indicator).
 Layer minute_layer; // The minutes indicator.
 
 int face_value;       // The current face on display (or transitioning into)
 bool face_transition; // True if the face is in transition
+bool wipe_direction;  // True for left-to-right, False for right-to-left.
+bool anim_direction;  // True to reverse tardis rotation.
 int transition_frame; // Frame number of current transition
 int prev_face_value;  // The face we're transitioning from
 AppTimerHandle anim_timer = APP_TIMER_INVALID_HANDLE;
@@ -108,16 +118,98 @@ void set_anim_timer() {
   anim_timer = app_timer_send_event(app_ctx, ANIM_TICK_MS, 0);
 }
 
-void clear_anim_timer() {
+void stop_transition() {
+  if (face_transition) {
+    // Release the transition resources.
+    bmp_deinit_container(&curr_image);
+    bmp_deinit_container(&prev_image);
+    face_transition = false;
+  }
+
+  if (has_sprite_mask) {
+    bmp_deinit_container(&sprite_mask);
+    has_sprite_mask = false;
+  }
+
+  if (has_sprite) {
+    bmp_deinit_container(&sprite);
+    has_sprite = false;
+  }
+
+  // Stop the transition timer.
   if (anim_timer != APP_TIMER_INVALID_HANDLE) {
     app_timer_cancel_event(app_ctx, anim_timer);
     anim_timer = APP_TIMER_INVALID_HANDLE;
   }
 }
+
+void start_transition(int face_new) {
+  if (face_transition) {
+    stop_transition();
+  }
+
+  // Update the face display.
+  prev_face_value = face_value;
+  face_value = face_new;
+
+  // Initialize the transition resources.
+  bmp_init_container(face_resource_ids[prev_face_value], &prev_image);
+  bmp_init_container(face_resource_ids[face_value], &curr_image);
+  face_transition = true;
+  transition_frame = 0;
+
+  static const int num_sprites = 2;
+
+  // Sure, it's not 100% even, but whatever.
+  wipe_direction = (rand() % 2) != 0;
+  int sprite_sel = (rand() % num_sprites);
+  anim_direction = (rand() % 2) != 0;
+  
+  // Initialize the sprite.
+  switch (sprite_sel) {
+  case 0:
+    // TARDIS.
+    has_sprite_mask = true;
+    bmp_init_container(RESOURCE_ID_TARDIS_MASK, &sprite_mask);
+    
+    sprite_cx = 72;
+    break;
+
+  case 1:
+    // K9.
+    has_sprite_mask = true;
+    bmp_init_container(RESOURCE_ID_K9_MASK, &sprite_mask);
+    has_sprite = true;
+    bmp_init_container(RESOURCE_ID_K9, &sprite);
+    sprite_cx = 41;
+
+    if (wipe_direction) {
+      flip_bitmap_x(&sprite_mask);
+      flip_bitmap_x(&sprite);
+      sprite_cx = sprite.bmp.bounds.size.w - sprite_cx;
+    }
+    break;
+  }
+
+  // Start the transition timer.
+  layer_mark_dirty(&face_layer);
+  set_anim_timer();
+}
   
 void face_layer_update_callback(Layer *me, GContext* ctx) {
+  int ti = 0;
+  
+  if (face_transition) {
+    // ti ranges from 0 to NUM_TRANSITION_FRAMES over the transition.
+    ti = transition_frame;
+    transition_frame++;
+    if (ti > NUM_TRANSITION_FRAMES) {
+      stop_transition();
+    }
+  }
+
   if (!face_transition) {
-    // The simple case: hold a particular frame.
+    // The simple case: no transition, so just hold the current frame.
     BmpContainer image;
     bmp_init_container(face_resource_ids[face_value], &image);
     
@@ -132,134 +224,94 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 
   } else {
     // The complex case: we animate a transition from one face to another.
-    int ti, wipe_x;
-    int tardis_frame;
-    BmpContainer prev_image, curr_image, tardis;
 
-    // ti ranges from 0 to NUM_TRANSITION_FRAMES over the transition.
-    ti = transition_frame;
-    transition_frame++;
-    if (ti >= NUM_TRANSITION_FRAMES) {
-      ti = NUM_TRANSITION_FRAMES;
-      face_transition = false;
-    }
-    wipe_x = SCREEN_WIDTH - (ti - NUM_FRAMES_OFFSCREEN) * SCREEN_WIDTH / (NUM_TRANSITION_FRAMES - NUM_FRAMES_OFFSCREEN * 2);
-    tardis_frame = ti % NUM_TARDIS_FRAMES;
+    // How far is the total animation distance from offscreen to
+    // offscreen?
+    int sprite_width = sprite_mask.bmp.bounds.size.w;
+    int wipe_width = SCREEN_WIDTH + sprite_width;
 
-    bmp_init_container(face_resource_ids[prev_face_value], &prev_image);
-    bmp_init_container(face_resource_ids[face_value], &curr_image);
-    bmp_init_container(tardis_frames[tardis_frame].tardis, &tardis);
-    
-    if (tardis_frames[tardis_frame].flip_x) {
-      flip_bitmap_x(&tardis);
-    }
-
-    GRect destination = layer_get_frame(me);
-    destination.origin.x = 0;
-    destination.origin.y = 0;
-    
-    // First, draw the new face.
-    graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-    graphics_draw_bitmap_in_rect(ctx, &curr_image.bmp, destination);
-
-    if (wipe_x > 0) {
-      // Then, draw the previous face on top of it, reducing the size to wipe
-      // from right to left.
-      destination.size.w = wipe_x;
-      graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
-    }
-
-    //    wipe_x = SCREEN_WIDTH / 2;// hack
-      
-    // Then, draw the tardis on top of the wipe line.
-    destination.size.w = tardis_mask.bmp.bounds.size.w;
-    destination.size.h = tardis_mask.bmp.bounds.size.h;
-    destination.origin.y = 0;
-    destination.origin.x = wipe_x - destination.size.w / 2;
-    graphics_context_set_compositing_mode(ctx, GCompOpClear);
-    graphics_draw_bitmap_in_rect(ctx, &tardis_mask.bmp, destination);
-    
-    destination.size.w = tardis.bmp.bounds.size.w;
-    destination.size.h = tardis.bmp.bounds.size.h;
-    destination.origin.y = 0;
-    destination.origin.x = wipe_x - destination.size.w / 2;
-    graphics_context_set_compositing_mode(ctx, GCompOpOr);
-    graphics_draw_bitmap_in_rect(ctx, &tardis.bmp, destination);
-    
-    // Finally, re-draw the minutes background card on top of the tardis.
-    destination.size.w = mins_background.bmp.bounds.size.w;
-    destination.size.h = mins_background.bmp.bounds.size.h;
-    destination.origin.x = SCREEN_WIDTH - destination.size.w;
-    destination.origin.y = SCREEN_HEIGHT - destination.size.h;
-    graphics_context_set_compositing_mode(ctx, GCompOpOr);
-    graphics_draw_bitmap_in_rect(ctx, &mins_background.bmp, destination);
-
-    bmp_deinit_container(&tardis);
-    bmp_deinit_container(&curr_image);
-    bmp_deinit_container(&prev_image);
-
-  } else {
-    // K9 wipe.
-    int ti, wipe_x;
-    BmpContainer prev_image, curr_image, k9_white, k9_black;
-    int k9_center = 41;
-    int k9_width = 144;
-    int wipe_width = SCREEN_WIDTH + k9_width;
-
-    // ti ranges from 0 to NUM_TRANSITION_FRAMES over the transition.
-    ti = transition_frame;
-    transition_frame++;
-    if (ti >= NUM_TRANSITION_FRAMES) {
-      ti = NUM_TRANSITION_FRAMES;
-      face_transition = false;
-    }
-
+    // Compute the current pixel position of the center of the wipe.
+    // It might be offscreen on one side or the other.
+    int wipe_x;
     wipe_x = wipe_width - ti * wipe_width / NUM_TRANSITION_FRAMES;
-    wipe_x = wipe_x - (k9_width - k9_center);
-
-    bmp_init_container(face_resource_ids[prev_face_value], &prev_image);
-    bmp_init_container(face_resource_ids[face_value], &curr_image);
-    bmp_init_container(RESOURCE_ID_K9_WHITE, &k9_white);
-    bmp_init_container(RESOURCE_ID_K9_BLACK, &k9_black);
+    if (wipe_direction) {
+      wipe_x = wipe_width - wipe_x;
+    }
+    wipe_x = wipe_x - (sprite_width - sprite_cx);
 
     GRect destination = layer_get_frame(me);
     destination.origin.x = 0;
     destination.origin.y = 0;
     
-    // First, draw the new face.
-    graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-    graphics_draw_bitmap_in_rect(ctx, &curr_image.bmp, destination);
-
-    if (wipe_x > 0) {
-      // Then, draw the previous face on top of it, reducing the size to wipe
-      // from right to left.
-      destination.size.w = wipe_x;
-      graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
-    }
+    if (wipe_direction) {
+      // First, draw the previous face.
+      if (wipe_x < SCREEN_WIDTH) {
+        graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+        graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
+      }
       
-    // Then, draw K9 on top of the wipe line.
-    destination.size.w = k9_white.bmp.bounds.size.w;
-    destination.size.h = k9_white.bmp.bounds.size.h;
-    destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
-    destination.origin.x = wipe_x - 41;
-    graphics_context_set_compositing_mode(ctx, GCompOpOr);
-    graphics_draw_bitmap_in_rect(ctx, &k9_white.bmp, destination);
-    
-    graphics_context_set_compositing_mode(ctx, GCompOpClear);
-    graphics_draw_bitmap_in_rect(ctx, &k9_black.bmp, destination);
-    
-    // Finally, re-draw the minutes background card on top of K9.
-    destination.size.w = mins_background.bmp.bounds.size.w;
-    destination.size.h = mins_background.bmp.bounds.size.h;
-    destination.origin.x = SCREEN_WIDTH - destination.size.w;
-    destination.origin.y = SCREEN_HEIGHT - destination.size.h;
-    graphics_context_set_compositing_mode(ctx, GCompOpOr);
-    graphics_draw_bitmap_in_rect(ctx, &mins_background.bmp, destination);
+      if (wipe_x > 0) {
+        // Then, draw the new face on top of it, reducing the size to wipe
+        // from right to left.
+        destination.size.w = wipe_x;
+        graphics_draw_bitmap_in_rect(ctx, &curr_image.bmp, destination);
+      }
+    } else {
+      // First, draw the new face.
+      if (wipe_x < SCREEN_WIDTH) {
+        graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+        graphics_draw_bitmap_in_rect(ctx, &curr_image.bmp, destination);
+      }
+      
+      if (wipe_x > 0) {
+        // Then, draw the previous face on top of it, reducing the size to wipe
+        // from right to left.
+        destination.size.w = wipe_x;
+        graphics_draw_bitmap_in_rect(ctx, &prev_image.bmp, destination);
+      }
+    }
 
-    bmp_deinit_container(&k9_white);
-    bmp_deinit_container(&k9_black);
-    bmp_deinit_container(&curr_image);
-    bmp_deinit_container(&prev_image);
+    if (has_sprite_mask) {
+      // Then, draw the sprite on top of the wipe line.
+      destination.size.w = sprite_mask.bmp.bounds.size.w;
+      destination.size.h = sprite_mask.bmp.bounds.size.h;
+      destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
+      destination.origin.x = wipe_x - sprite_cx;
+      graphics_context_set_compositing_mode(ctx, GCompOpClear);
+      graphics_draw_bitmap_in_rect(ctx, &sprite_mask.bmp, destination);
+      
+      if (has_sprite) {
+        // Fixed sprite case.
+        graphics_context_set_compositing_mode(ctx, GCompOpOr);
+        graphics_draw_bitmap_in_rect(ctx, &sprite.bmp, destination);
+      } else {
+        // Tardis case.  Since it's animated, but we don't have enough
+        // RAM to hold all the frames at once, we have to load one frame
+        // at a time as we need it.
+        BmpContainer tardis;
+        int af = ti % NUM_TARDIS_FRAMES;
+        if (anim_direction) {
+          af = (NUM_TARDIS_FRAMES - 1) - af;
+        }
+        bmp_init_container(tardis_frames[af].tardis, &tardis);
+        if (tardis_frames[af].flip_x) {
+          flip_bitmap_x(&tardis);
+        }
+        
+        graphics_context_set_compositing_mode(ctx, GCompOpOr);
+        graphics_draw_bitmap_in_rect(ctx, &tardis.bmp, destination);
+        
+        bmp_deinit_container(&tardis);
+      }
+      
+      // Finally, re-draw the minutes background card on top of the sprite.
+      destination.size.w = mins_background.bmp.bounds.size.w;
+      destination.size.h = mins_background.bmp.bounds.size.h;
+      destination.origin.x = SCREEN_WIDTH - destination.size.w;
+      destination.origin.y = SCREEN_HEIGHT - destination.size.h;
+      graphics_context_set_compositing_mode(ctx, GCompOpOr);
+      graphics_draw_bitmap_in_rect(ctx, &mins_background.bmp, destination);
+    }
   }
 }
   
@@ -303,25 +355,17 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *t) {
   }
 
   if (face_new != face_value) {
-    // Update the face display.
-    prev_face_value = face_value;
-    face_value = face_new;
-    layer_mark_dirty(&face_layer);
-
-    // We'll also start a transition animation.
-    face_transition = true;
-    transition_frame = 0;
-    set_anim_timer();
+    start_transition(face_new);
   }
 }
 
-// Triggered at 100ms intervals for transition animations.
+// Triggered at ANIM_TICK_MS intervals for transition animations.
 void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
   if (face_transition) {
     layer_mark_dirty(&face_layer);
+
+    // Continue the timer while the transition is in effect.
     set_anim_timer();
-  } else {
-    clear_anim_timer();
   }
 }
 
@@ -340,7 +384,6 @@ void handle_init(AppContextRef ctx) {
   resource_init_current_app(&APP_RESOURCES);
 
   bmp_init_container(RESOURCE_ID_MINS_BACKGROUND, &mins_background);
-  bmp_init_container(RESOURCE_ID_TARDIS_MASK, &tardis_mask);
 
   layer_init(&face_layer, window.layer.frame);
   face_layer.update_proc = &face_layer_update_callback;
@@ -354,8 +397,8 @@ void handle_init(AppContextRef ctx) {
 void handle_deinit(AppContextRef ctx) {
   (void)ctx;
 
-  bmp_deinit_container(&tardis_mask);
   bmp_deinit_container(&mins_background);
+  stop_transition();
 }
 
 void pbl_main(void *params) {

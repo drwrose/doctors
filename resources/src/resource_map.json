@@ -90,7 +90,12 @@
  	   {
     "defName": "K9",
     "file": "k9.png",
-    "type": "png-trans"
+    "type": "png"
+	   },
+ 	   {
+    "defName": "K9_MASK",
+    "file": "k9_mask.png",
+    "type": "png"
 	   },
  	   {
     "defName": "MINS_BACKGROUND",
