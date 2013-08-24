@@ -2,7 +2,7 @@
 #include "pebble_app.h"
 #include "pebble_fonts.h"
 
-#define FAST_TIME 1
+//#define FAST_TIME 1
 
 #define MY_UUID { 0x22, 0x1E, 0xA6, 0x2F, 0xE2, 0xD0, 0x47, 0x25, 0x97, 0xC3, 0x7F, 0xB3, 0xA2, 0xAF, 0x4C, 0x0C }
 PBL_APP_INFO(MY_UUID,
@@ -387,16 +387,18 @@ void handle_timer(AppContextRef ctx, AppTimerHandle handle, uint32_t cookie) {
 }
 
 void handle_init(AppContextRef ctx) {
-  PblTm time;
+  PblTm pbltime;
 
+  srand(time(NULL));
+  
   app_ctx = ctx;
   window_init(&window, "12 Doctors");
   window_stack_push(&window, true /* Animated */);
 
-  get_time(&time);
-  face_value = time.tm_hour % 12;
+  get_time(&pbltime);
+  face_value = pbltime.tm_hour % 12;
   face_transition = false;
-  minute_value = time.tm_min;
+  minute_value = pbltime.tm_min;
 
   resource_init_current_app(&APP_RESOURCES);
 
