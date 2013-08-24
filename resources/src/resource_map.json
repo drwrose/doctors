@@ -3,6 +3,11 @@
  "versionDefName": "APP_RESOURCES",
  "media": [
 	   {
+    "defName": "APP_ICON",
+    "file": "app_icon.png",
+    "type": "png"
+	   },
+	   {
     "defName": "ONE",
     "file": "one.png",
     "type": "png"

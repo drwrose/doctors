@@ -10,7 +10,7 @@
 PBL_APP_INFO(MY_UUID,
              "12 Doctors", "drwrose",
              1, 2, /* App version */
-             DEFAULT_MENU_ICON,
+             RESOURCE_ID_APP_ICON,
              APP_INFO_WATCH_FACE);
 
 
