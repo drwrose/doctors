@@ -6,6 +6,11 @@
 
 #define HOUR_BUZZER 1
 
+// Define this to limit the set of sprites to just the Tardis (to
+// reduce resource size).  You also need to remove the other sprites
+// from the resource file, of course.
+#define TARDIS_ONLY 1
+
 #define MY_UUID { 0x22, 0x1E, 0xA6, 0x2F, 0xE2, 0xD0, 0x47, 0x25, 0x97, 0xC3, 0x7F, 0xB3, 0xA2, 0xAF, 0x4C, 0x0C }
 PBL_APP_INFO(MY_UUID,
              "12 Doctors", "drwrose",
@@ -76,6 +81,21 @@ int face_resource_ids[12] = {
   RESOURCE_ID_TEN,
   RESOURCE_ID_ELEVEN,
 };
+
+#ifdef TARDIS_ONLY
+
+#define SPRITE_TARDIS 0
+#define NUM_SPRITES   1
+
+#else
+
+#define SPRITE_TARDIS 0
+#define SPRITE_K9     1
+#define SPRITE_DALEK  2
+#define NUM_SPRITES   3
+
+#endif  // TARDIS_ONLY
+
 
 typedef struct {
   int tardis;
@@ -225,7 +245,6 @@ void start_transition(int face_new, bool force_tardis) {
   bmp_init_container(face_resource_ids[face_value], &curr_image);
   has_curr_image = true;
 
-  static const int num_sprites = 3;
   int sprite_sel;
 
   if (force_tardis) {
@@ -237,22 +256,21 @@ void start_transition(int face_new, bool force_tardis) {
   } else {
     // Choose a random transition at the top of the hour.
     wipe_direction = (rand() % 2) != 0;    // Sure, it's not 100% even, but whatever.
-    sprite_sel = (rand() % num_sprites);
+    sprite_sel = (rand() % NUM_SPRITES);
     anim_direction = (rand() % 2) != 0;
   }
   
   // Initialize the sprite.
   switch (sprite_sel) {
-  case 0:
-    // TARDIS.
+  case SPRITE_TARDIS:
     has_sprite_mask = true;
     bmp_init_container(RESOURCE_ID_TARDIS_MASK, &sprite_mask);
     
     sprite_cx = 72;
     break;
 
-  case 1:
-    // K9.
+#ifndef TARDIS_ONLY
+  case SPRITE_K9:
     has_sprite_mask = true;
     bmp_init_container(RESOURCE_ID_K9_MASK, &sprite_mask);
     has_sprite = true;
@@ -266,8 +284,7 @@ void start_transition(int face_new, bool force_tardis) {
     }
     break;
 
-  case 2:
-    // Dalek.
+  case SPRITE_DALEK:
     has_sprite_mask = true;
     bmp_init_container(RESOURCE_ID_DALEK_MASK, &sprite_mask);
     has_sprite = true;
@@ -280,6 +297,7 @@ void start_transition(int face_new, bool force_tardis) {
       sprite_cx = sprite.bmp.bounds.size.w - sprite_cx;
     }
     break;
+#endif  // TARDIS_ONLY
   }
 
   // Start the transition timer.
