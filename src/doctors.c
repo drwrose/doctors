@@ -93,6 +93,12 @@ TardisFrame tardis_frames[NUM_TARDIS_FRAMES] = {
   { RESOURCE_ID_TARDIS_02, true }
 };
 
+static const uint32_t tap_segments[] = { 50 };
+VibePattern tap = {
+  tap_segments,
+  1,
+};
+
 // Reverse the bits of a byte.
 // http://www-graphics.stanford.edu/~seander/bithacks.html#BitReverseTable
 uint8_t reverse_bits(uint8_t b) {
@@ -119,10 +125,10 @@ void flip_bitmap_x(BmpContainer *image) {
   }
 }
 
+#ifdef HOUR_BUZZER
 int check_buzzer() {
   // Rings the buzzer if it's almost time for the hour to change.
   // Returns the amount of time in ms to wait for the next buzzer.
-#ifdef HOUR_BUZZER
   time_t now = time(NULL);  
 
   // What hour is it right now, including the anticipate offset?
@@ -130,7 +136,7 @@ int check_buzzer() {
   if (this_hour != last_buzz_hour) {
     if (last_buzz_hour != -1) {
       // Time to ring the buzzer.
-      vibes_short_pulse();
+      vibes_enqueue_custom_pattern(tap);
     }
 
     // Now make sure we don't ring the buzzer again for this hour.
@@ -140,10 +146,8 @@ int check_buzzer() {
   int next_hour = this_hour + 1;
   int next_buzzer_time = next_hour * 3600 - BUZZER_ANTICIPATE;
   return (next_buzzer_time - now) * 1000;
-#else  // HOUR_BUZZER
-  return -1;
-#endif  // HOUR_BUZZER
 }
+#endif  // HOUR_BUZZER
 
 // Ensures the animation/buzzer timer is running.
 void set_next_timer() {
@@ -151,7 +155,9 @@ void set_next_timer() {
     app_timer_cancel_event(app_ctx, anim_timer);
     anim_timer = APP_TIMER_INVALID_HANDLE;
   }
+#ifdef HOUR_BUZZER
   int next_buzzer_ms = check_buzzer();
+#endif  // HOUR_BUZZER
 
   if (face_transition) {
     // If the animation is underway, we need to fire the timer at
