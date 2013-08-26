@@ -89,13 +89,33 @@
 	   },
  	   {
     "defName": "TARDIS_MASK",
-    "file": "tardis_masks.png",
+    "file": "tardis_masks.rle",
+    "type": "raw"
+	   },
+ 	   {
+    "defName": "K9",
+    "file": "k9.png",
     "type": "png"
 	   },
  	   {
-    "defName": "MINS_BACKGROUND",
-    "file": "mins_background.png",
+    "defName": "K9_MASK",
+    "file": "k9_mask.rle",
+    "type": "raw"
+	   },
+ 	   {
+    "defName": "DALEK",
+    "file": "dalek.png",
     "type": "png"
+	   },
+ 	   {
+    "defName": "DALEK_MASK",
+    "file": "dalek_mask.rle",
+    "type": "raw"
+	   },
+ 	   {
+    "defName": "MINS_BACKGROUND",
+    "file": "mins_background.rle",
+    "type": "raw"
 	   }
 	  ]
 }

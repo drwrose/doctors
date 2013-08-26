@@ -9,7 +9,7 @@
 // Define this to limit the set of sprites to just the Tardis (to
 // reduce resource size).  You also need to remove the other sprites
 // from the resource file, of course.
-#define TARDIS_ONLY 1
+//#define TARDIS_ONLY 1
 
 #define MY_UUID { 0x22, 0x1E, 0xA6, 0x2F, 0xE2, 0xD0, 0x47, 0x25, 0x97, 0xC3, 0x7F, 0xB3, 0xA2, 0xAF, 0x4C, 0x0C }
 PBL_APP_INFO(MY_UUID,
@@ -143,6 +143,17 @@ void flip_bitmap_x(BmpContainer *image) {
       row[x2] = b;
     }
   }
+}
+
+// Initialize a bitmap from a rle-encoded resource.  Behaves similarly
+// to bmp_init_container.
+void
+rle_init_container(int resource_id, BmpContainer *container) {
+}
+
+void
+rle_deinit_container(BmpContainer *container) {
+  bmp_deinit_container(container);
 }
 
 #ifdef HOUR_BUZZER
