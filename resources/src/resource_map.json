@@ -114,8 +114,8 @@
 	   },
  	   {
     "defName": "MINS_BACKGROUND",
-    "file": "mins_background.rle",
-    "type": "raw"
+    "file": "mins_background.png",
+    "type": "png"
 	   }
 	  ]
 }

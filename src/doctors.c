@@ -113,10 +113,10 @@ TardisFrame tardis_frames[NUM_TARDIS_FRAMES] = {
   { RESOURCE_ID_TARDIS_02, true }
 };
 
-static const uint32_t tap_segments[] = { 50 };
+static const uint32_t tap_segments[] = { 50, 50, 50 };
 VibePattern tap = {
   tap_segments,
-  1,
+  3,
 };
 
 // Reverse the bits of a byte.
@@ -145,15 +145,127 @@ void flip_bitmap_x(BmpContainer *image) {
   }
 }
 
+#define RBUFFER_SIZE 1024
+typedef struct {
+  ResHandle _rh;
+  size_t _i;
+  size_t _filled_size;
+  size_t _bytes_read;
+  uint8_t _buffer[RBUFFER_SIZE];
+} RBuffer;
+
+// Begins reading from a raw resource.  Should be matched by a later
+// call to rbuffer_deinit() to free this stuff.
+void rbuffer_init(int resource_id, RBuffer *rb) {
+  rb->_rh = resource_get_handle(resource_id);
+  rb->_i = 0;
+  rb->_filled_size = resource_load_byte_range(rb->_rh, 0, rb->_buffer, RBUFFER_SIZE);
+  rb->_bytes_read = rb->_filled_size;
+}
+
+// Gets the next byte from the rbuffer.  Returns EOF at end.
+int rbuffer_getc(RBuffer *rb) {
+  if (rb->_i >= RBUFFER_SIZE) {
+    rb->_filled_size = resource_load_byte_range(rb->_rh, rb->_bytes_read, rb->_buffer, RBUFFER_SIZE);
+    rb->_bytes_read += rb->_filled_size;
+    rb->_i = 0;
+  }
+  if (rb->_i >= rb->_filled_size) {
+    return EOF;
+  }
+
+  int result = rb->_buffer[rb->_i];
+  rb->_i++;
+  return result;
+}
+
+// Frees the resources reserved in rbuffer_init().
+void rbuffer_deinit(RBuffer *rb) {
+  // Actually, we don't need to do anything here.
+}
+
 // Initialize a bitmap from a rle-encoded resource.  Behaves similarly
-// to bmp_init_container.
+// to bmp_init_container.  In a hideous hack, we need to supply
+// ref_resource_id as a similar-sized uncompressed bitmap to serve as
+// a reference for the allocator.
 void
-rle_init_container(int resource_id, BmpContainer *container) {
+rle_init_container(int resource_id, int ref_resource_id, BmpContainer *image) {
+  bmp_init_container(ref_resource_id, image);
+
+  int height = image->bmp.bounds.size.h;
+  int width = image->bmp.bounds.size.w;  // multiple of 8, by our convention.
+  int stride = image->bmp.row_size_bytes; // multiple of 4, by Pebble.
+
+  memset(image->bmp.addr, 0, stride * height);
+
+  // Now get the RLE bytes from the resource.
+  RBuffer rb;
+  rbuffer_init(resource_id, &rb);
+  int r_width = rbuffer_getc(&rb);
+  int r_height = rbuffer_getc(&rb);
+  int r_stride = rbuffer_getc(&rb);
+
+  if (r_height != height || r_width != width || r_stride != stride) {
+    // The size must exactly match the reference.
+    return;
+  }
+
+  // The initial value is 0.
+  uint8_t *dp = image->bmp.addr;
+  uint8_t *dp_stop = dp + stride * height;
+  int value = 0;
+  int b = 0;
+  int count = rbuffer_getc(&rb);
+  while (count != EOF) {
+    if (dp >= dp_stop) {
+      // failsafe.
+      return;
+    }
+    if (value) {
+      // Generate count 1-bits.
+      int b1 = b + count;
+      if (b1 < 8) {
+        // We're still within the same byte.
+        int mask = ~((1 << (b)) - 1);
+        mask &= ((1 << (b1)) - 1);
+        *dp |= mask;
+        b = b1;
+      } else {
+        // We've crossed over a byte boundary.
+        *dp |= ~((1 << (b)) - 1);
+        ++dp;
+        b += 8;
+        while (b1 / 8 != b / 8) {
+          if (dp >= dp_stop) {
+            // failsafe.
+            return;
+          }
+          *dp = 0xff;
+          ++dp;
+          b += 8;
+        }
+        b1 = b1 % 8;
+        if (dp >= dp_stop) {
+          // failsafe.
+          return;
+        }
+        *dp |= ((1 << (b1)) - 1);
+        b = b1;
+      }
+    } else {
+      // Skip over count 0-bits.
+      b += count;
+      dp += b / 8;
+      b = b % 8;
+    }
+    value = 1 - value;
+    count = rbuffer_getc(&rb);
+  }
 }
 
 void
-rle_deinit_container(BmpContainer *container) {
-  bmp_deinit_container(container);
+rle_deinit_container(BmpContainer *image) {
+  bmp_deinit_container(image);
 }
 
 #ifdef HOUR_BUZZER
@@ -219,7 +331,7 @@ void stop_transition() {
   }
 
   if (has_sprite_mask) {
-    bmp_deinit_container(&sprite_mask);
+    rle_deinit_container(&sprite_mask);
     has_sprite_mask = false;
   }
 
@@ -270,12 +382,12 @@ void start_transition(int face_new, bool force_tardis) {
     sprite_sel = (rand() % NUM_SPRITES);
     anim_direction = (rand() % 2) != 0;
   }
-  
+
   // Initialize the sprite.
   switch (sprite_sel) {
   case SPRITE_TARDIS:
     has_sprite_mask = true;
-    bmp_init_container(RESOURCE_ID_TARDIS_MASK, &sprite_mask);
+    rle_init_container(RESOURCE_ID_TARDIS_MASK, RESOURCE_ID_TARDIS_01, &sprite_mask);
     
     sprite_cx = 72;
     break;
@@ -283,7 +395,7 @@ void start_transition(int face_new, bool force_tardis) {
 #ifndef TARDIS_ONLY
   case SPRITE_K9:
     has_sprite_mask = true;
-    bmp_init_container(RESOURCE_ID_K9_MASK, &sprite_mask);
+    rle_init_container(RESOURCE_ID_K9_MASK, RESOURCE_ID_K9, &sprite_mask);
     has_sprite = true;
     bmp_init_container(RESOURCE_ID_K9, &sprite);
     sprite_cx = 41;
@@ -297,7 +409,7 @@ void start_transition(int face_new, bool force_tardis) {
 
   case SPRITE_DALEK:
     has_sprite_mask = true;
-    bmp_init_container(RESOURCE_ID_DALEK_MASK, &sprite_mask);
+    rle_init_container(RESOURCE_ID_DALEK_MASK, RESOURCE_ID_DALEK, &sprite_mask);
     has_sprite = true;
     bmp_init_container(RESOURCE_ID_DALEK, &sprite);
     sprite_cx = 74;
@@ -534,7 +646,8 @@ void handle_init(AppContextRef ctx) {
   face_layer.update_proc = &face_layer_update_callback;
   layer_add_child(&window.layer, &face_layer);
 
-  layer_init(&minute_layer, GRect(95, 134, 54, 35));
+  //layer_init(&minute_layer, GRect(95, 134, 54, 35));
+  layer_init(&minute_layer, GRect(95, 134, 100, 35));
   minute_layer.update_proc = &minute_layer_update_callback;
   layer_add_child(&window.layer, &minute_layer);
 
