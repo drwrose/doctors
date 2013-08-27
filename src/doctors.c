@@ -22,6 +22,9 @@ PBL_APP_INFO(MY_UUID,
 #define SCREEN_WIDTH 144
 #define SCREEN_HEIGHT 168
 
+// The frequency throughout the day at which the buzzer sounds, in seconds.
+#define BUZZER_FREQ 3600
+
 // Amount of time, in seconds, to ring the buzzer before the hour.
 #define BUZZER_ANTICIPATE 2
 
@@ -115,7 +118,7 @@ TardisFrame tardis_frames[NUM_TARDIS_FRAMES] = {
   { RESOURCE_ID_TARDIS_02, true }
 };
 
-static const uint32_t tap_segments[] = { 50, 50, 50 };
+static const uint32_t tap_segments[] = { 50, 85, 50 };
 VibePattern tap = {
   tap_segments,
   3,
@@ -277,11 +280,12 @@ int check_buzzer() {
   time_t now = time(NULL);  
 
   // What hour is it right now, including the anticipate offset?
-  int this_hour = (now + BUZZER_ANTICIPATE) / 3600;
+  int this_hour = (now + BUZZER_ANTICIPATE) / BUZZER_FREQ;
   if (this_hour != last_buzz_hour) {
     if (last_buzz_hour != -1) {
       // Time to ring the buzzer.
       vibes_enqueue_custom_pattern(tap);
+      //vibes_double_pulse();
     }
 
     // Now make sure we don't ring the buzzer again for this hour.
@@ -289,7 +293,8 @@ int check_buzzer() {
   }
 
   int next_hour = this_hour + 1;
-  int next_buzzer_time = next_hour * 3600 - BUZZER_ANTICIPATE;
+  int next_buzzer_time = next_hour * BUZZER_FREQ - BUZZER_ANTICIPATE;
+
   return (next_buzzer_time - now) * 1000;
 }
 #endif  // HOUR_BUZZER
@@ -643,7 +648,9 @@ void handle_tick(AppContextRef ctx, PebbleTickEvent *t) {
     layer_mark_dirty(&minute_layer);
   }
 
-  if (face_new != face_value && !face_transition) {
+  if (face_transition) {
+    layer_mark_dirty(&face_layer);
+  } else if (face_new != face_value) {
     start_transition(face_new, false);
   }
 
