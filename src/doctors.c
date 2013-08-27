@@ -2,8 +2,11 @@
 #include "pebble_app.h"
 #include "pebble_fonts.h"
 
+// Define this during development to make it easier to see animations
+// in a timely fashion.
 //#define FAST_TIME 1
 
+// Define this to enable the buzzer at the top of the hour.
 #define HOUR_BUZZER 1
 
 // Define this to limit the set of sprites to just the Tardis (to
@@ -14,7 +17,7 @@
 #define MY_UUID { 0x22, 0x1E, 0xA6, 0x2F, 0xE2, 0xD0, 0x47, 0x25, 0x97, 0xC3, 0x7F, 0xB3, 0xA2, 0xAF, 0x4C, 0x0C }
 PBL_APP_INFO(MY_UUID,
              "12 Doctors", "drwrose",
-             1, 2, /* App version */
+             1, 3, /* App version */
              RESOURCE_ID_APP_ICON,
              APP_INFO_WATCH_FACE);
 
@@ -324,13 +327,14 @@ void set_next_timer() {
 }
 
 // Hack alert!  This is an opaque data structure, but we're looking
-// inside it anyway.
+// inside it anyway.  Idea taken from
+// http://memention.com/blog/2013/07/20/Yak-shaving-a-Pebble.html .
 struct GContext {
-  void **ptr;
+  uint8_t **framebuffer;
 };
 
 // Initializes the indicated BmpContainer with a copy of the current
-// framebuffer data.  Hacky!
+// framebuffer data.  Hacky!  Free it later with bmp_deinit_container().
 void
 fb_init_container(int ref_resource_id, BmpContainer *image) {
   bmp_init_container(ref_resource_id, image);
@@ -344,9 +348,9 @@ fb_init_container(int ref_resource_id, BmpContainer *image) {
   }
 
   struct GContext *gctx = app_get_current_graphics_context();
-  uint8_t *ptr = (uint8_t *)(*gctx->ptr);
+  uint8_t *framebuffer = *gctx->framebuffer;
 
-  memcpy(image->bmp.addr, ptr, stride * height);
+  memcpy(image->bmp.addr, framebuffer, stride * height);
 }
 
 
@@ -681,6 +685,14 @@ void handle_init(AppContextRef ctx) {
   
   app_ctx = ctx;
   window_init(&window, "12 Doctors");
+
+  // Instead of animating the window push, we handle the opening push
+  // ourselves (with the spinning TARDIS layered on top of a captured
+  // copy of the framebuffer image).
+
+  // NB: there doesn't seem to be a way to determine the expected
+  // direction of the window slide (i.e., whether we came to the app
+  // via the left or the right button).
   window_stack_push(&window, false /* not animated */);
 
   bmp_init_container(RESOURCE_ID_MINS_BACKGROUND, &mins_background);
