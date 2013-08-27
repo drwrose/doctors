@@ -29,7 +29,8 @@ PBL_APP_INFO(MY_UUID,
 #define ANIM_TICK_MS 50
 
 // Number of frames of animation
-#define NUM_TRANSITION_FRAMES 24
+#define NUM_TRANSITION_FRAMES_HOUR 24
+#define NUM_TRANSITION_FRAMES_STARTUP 10
 
 AppContextRef app_ctx;
 Window window;
@@ -61,6 +62,7 @@ bool face_transition; // True if the face is in transition
 bool wipe_direction;  // True for left-to-right, False for right-to-left.
 bool anim_direction;  // True to reverse tardis rotation.
 int transition_frame; // Frame number of current transition
+int num_transition_frames;  // Total frames for transition
 int prev_face_value;  // The face we're transitioning from, or -1.
 AppTimerHandle anim_timer = APP_TIMER_INVALID_HANDLE;
 
@@ -316,6 +318,33 @@ void set_next_timer() {
   }
 }
 
+// Hack alert!  This is an opaque data structure, but we're looking
+// inside it anyway.
+struct GContext {
+  void **ptr;
+};
+
+// Initializes the indicated BmpContainer with a copy of the current
+// framebuffer data.  Hacky!
+void
+fb_init_container(int ref_resource_id, BmpContainer *image) {
+  bmp_init_container(ref_resource_id, image);
+
+  int height = image->bmp.bounds.size.h;
+  int width = image->bmp.bounds.size.w;  // multiple of 8, by our convention.
+  int stride = image->bmp.row_size_bytes; // multiple of 4, by Pebble.
+  if (height != SCREEN_HEIGHT || width != SCREEN_WIDTH) {
+    // Not supported.
+    return;
+  }
+
+  struct GContext *gctx = app_get_current_graphics_context();
+  uint8_t *ptr = (uint8_t *)(*gctx->ptr);
+
+  memcpy(image->bmp.addr, ptr, stride * height);
+}
+
+
 void stop_transition() {
   face_transition = false;
 
@@ -347,7 +376,7 @@ void stop_transition() {
   }
 }
 
-void start_transition(int face_new, bool force_tardis) {
+void start_transition(int face_new, bool for_startup) {
   if (face_transition) {
     stop_transition();
   }
@@ -358,10 +387,16 @@ void start_transition(int face_new, bool force_tardis) {
 
   face_transition = true;
   transition_frame = 0;
+  num_transition_frames = NUM_TRANSITION_FRAMES_HOUR;
 
   // Initialize the transition resources.
   if (prev_face_value >= 0) {
     bmp_init_container(face_resource_ids[prev_face_value], &prev_image);
+    has_prev_image = true;
+  } else {
+    // When we don't have a previous face, use whatever's already in
+    // the framebuffer.  This is the startup case.
+    fb_init_container(RESOURCE_ID_ONE, &prev_image);
     has_prev_image = true;
   }
 
@@ -370,11 +405,12 @@ void start_transition(int face_new, bool force_tardis) {
 
   int sprite_sel;
 
-  if (force_tardis) {
+  if (for_startup) {
     // Force the right-to-left TARDIS transition at startup.
     wipe_direction = false;
     sprite_sel = 0;
     anim_direction = false;
+    num_transition_frames = NUM_TRANSITION_FRAMES_STARTUP;
 
   } else {
     // Choose a random transition at the top of the hour.
@@ -432,10 +468,10 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
   int ti = 0;
   
   if (face_transition) {
-    // ti ranges from 0 to NUM_TRANSITION_FRAMES over the transition.
+    // ti ranges from 0 to num_transition_frames over the transition.
     ti = transition_frame;
     transition_frame++;
-    if (ti > NUM_TRANSITION_FRAMES) {
+    if (ti > num_transition_frames) {
       stop_transition();
     }
   }
@@ -467,7 +503,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     // Compute the current pixel position of the center of the wipe.
     // It might be offscreen on one side or the other.
     int wipe_x;
-    wipe_x = wipe_width - ti * wipe_width / NUM_TRANSITION_FRAMES;
+    wipe_x = wipe_width - ti * wipe_width / num_transition_frames;
     if (wipe_direction) {
       wipe_x = wipe_width - wipe_x;
     }
