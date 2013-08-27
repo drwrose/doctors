@@ -646,8 +646,7 @@ void handle_init(AppContextRef ctx) {
   face_layer.update_proc = &face_layer_update_callback;
   layer_add_child(&window.layer, &face_layer);
 
-  //layer_init(&minute_layer, GRect(95, 134, 54, 35));
-  layer_init(&minute_layer, GRect(95, 134, 100, 35));
+  layer_init(&minute_layer, GRect(95, 134, 54, 35));
   minute_layer.update_proc = &minute_layer_update_callback;
   layer_add_child(&window.layer, &minute_layer);
 
