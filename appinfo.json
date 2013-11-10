@@ -1,0 +1,132 @@
+{
+  "uuid": "221ea62f-e2d0-4725-97c3-7fb3a2af4c0c",
+  "shortName": "12 Doctors",
+  "longName": "12 Doctors",
+  "companyName": "drwrose",
+  "versionCode": 1,
+  "versionLabel": "1.3.0",
+  "watchapp": {
+    "watchface": true
+  },
+  "appKeys": {},
+  "resources": {
+    "media": [
+      {
+        "menuIcon": true,
+        "type": "png",
+        "name": "APP_ICON",
+        "file": "app_icon.png"
+      },
+      {
+        "type": "png",
+        "name": "ONE",
+        "file": "one.png"
+      },
+      {
+        "type": "png",
+        "name": "TWO",
+        "file": "two.png"
+      },
+      {
+        "type": "png",
+        "name": "THREE",
+        "file": "three.png"
+      },
+      {
+        "type": "png",
+        "name": "FOUR",
+        "file": "four.png"
+      },
+      {
+        "type": "png",
+        "name": "FIVE",
+        "file": "five.png"
+      },
+      {
+        "type": "png",
+        "name": "SIX",
+        "file": "six.png"
+      },
+      {
+        "type": "png",
+        "name": "SEVEN",
+        "file": "seven.png"
+      },
+      {
+        "type": "png",
+        "name": "EIGHT",
+        "file": "eight.png"
+      },
+      {
+        "type": "png",
+        "name": "NINE",
+        "file": "nine.png"
+      },
+      {
+        "type": "png",
+        "name": "TEN",
+        "file": "ten.png"
+      },
+      {
+        "type": "png",
+        "name": "ELEVEN",
+        "file": "eleven.png"
+      },
+      {
+        "type": "png",
+        "name": "TWELVE",
+        "file": "twelve.png"
+      },
+      {
+        "type": "png",
+        "name": "TARDIS_01",
+        "file": "tardis_01.png"
+      },
+      {
+        "type": "png",
+        "name": "TARDIS_02",
+        "file": "tardis_02.png"
+      },
+      {
+        "type": "png",
+        "name": "TARDIS_03",
+        "file": "tardis_03.png"
+      },
+      {
+        "type": "png",
+        "name": "TARDIS_04",
+        "file": "tardis_04.png"
+      },
+      {
+        "type": "raw",
+        "name": "TARDIS_MASK",
+        "file": "tardis_masks.rle"
+      },
+      {
+        "type": "png",
+        "name": "K9",
+        "file": "k9.png"
+      },
+      {
+        "type": "raw",
+        "name": "K9_MASK",
+        "file": "k9_mask.rle"
+      },
+      {
+        "type": "png",
+        "name": "DALEK",
+        "file": "dalek.png"
+      },
+      {
+        "type": "raw",
+        "name": "DALEK_MASK",
+        "file": "dalek_mask.rle"
+      },
+      {
+        "type": "png",
+        "name": "MINS_BACKGROUND",
+        "file": "mins_background.png"
+      }
+    ]
+  }
+}
