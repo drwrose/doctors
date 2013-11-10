@@ -4,6 +4,10 @@
 // in a timely fashion.
 //#define FAST_TIME 1
 
+// Define this to enable the FB-grabbing hack, which might break at
+// the next SDK update.
+//#define FB_HACK 1
+
 // Define this to enable the buzzer at the top of the hour.
 #define HOUR_BUZZER 1
 
@@ -41,9 +45,11 @@ GBitmap *curr_image = NULL;
 GBitmap *sprite_mask = NULL;
 GBitmap *sprite = NULL;
 
-// Set this true to grab the currently-visible framebuffer data and
-// store it in prev_image.
-bool grab_fb_image = false;
+#ifdef FB_HACK
+// The previous framebuffer data.
+GBitmap *fb_image = NULL;
+bool first_update = true;
+#endif  // FB_HACK
 
 // The horizontal center point of the sprite.
 int sprite_cx = 0;
@@ -328,11 +334,12 @@ void set_next_timer() {
   }
 }
 
+#ifdef FB_HACK
 // Hack alert!  This is an opaque data structure, but we're looking
 // inside it anyway.  Idea taken from
 // http://memention.com/blog/2013/07/20/Yak-shaving-a-Pebble.html .
 struct GContext {
-  uint8_t **framebuffer;
+  uint8_t *framebuffer;
 };
 
 // Initializes the indicated GBitmap with a copy of the current
@@ -350,13 +357,14 @@ fb_gbitmap_create(struct GContext *ctx, int ref_resource_id) {
     return image;
   }
 
-  // This doesn't work in SDK 2.0.  The framebuffer must be stored elsewhere.
-  //uint8_t *framebuffer = *ctx->framebuffer;
-  //memcpy(image->addr, framebuffer, stride * height);
+  // This doesn't appear to be working yet.  Not sure where I should
+  // be finding this data.
+  uint8_t *framebuffer = ctx->framebuffer;
+  memcpy(image->addr, framebuffer, stride * height);
 
-  memset(image->addr, 0x00, stride * height);
   return image;
 }
+#endif  // FB_HACK
 
 
 void stop_transition() {
@@ -383,6 +391,13 @@ void stop_transition() {
     sprite = NULL;
   }
 
+#ifdef FB_HACK
+  if (fb_image != NULL) {
+    gbitmap_destroy(fb_image);
+    fb_image = NULL;
+  }
+#endif  // FB_HACK
+
   // Stop the transition timer.
   if (anim_timer != NULL) {
     app_timer_cancel(anim_timer);
@@ -406,10 +421,6 @@ void start_transition(int face_new, bool for_startup) {
   // Initialize the transition resources.
   if (prev_face_value >= 0) {
     prev_image = gbitmap_create_with_resource(face_resource_ids[prev_face_value]);
-  } else if (for_startup) {
-    // When we don't have a previous face, use whatever's already in
-    // the framebuffer.  This is the startup case.
-    grab_fb_image = true;
   }
 
   curr_image = gbitmap_create_with_resource(face_resource_ids[face_value]);
@@ -469,8 +480,15 @@ void start_transition(int face_new, bool for_startup) {
   layer_mark_dirty(face_layer);
   set_next_timer();
 }
-  
+
 void face_layer_update_callback(Layer *me, GContext* ctx) {
+#ifdef FB_HACK
+  if (fb_image == NULL && first_update) {
+    first_update = false;
+    fb_image = fb_gbitmap_create(ctx, RESOURCE_ID_ONE);
+  }
+#endif
+
   int ti = 0;
   
   if (face_transition) {
@@ -519,10 +537,12 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     destination.origin.x = 0;
     destination.origin.y = 0;
 
-    if (grab_fb_image && prev_image == NULL) {
-      prev_image = fb_gbitmap_create(ctx, RESOURCE_ID_ONE);
-      grab_fb_image = false;
+#ifdef FB_HACK
+    if (fb_image != NULL && prev_image == NULL) {
+      prev_image = fb_image;
+      fb_image = NULL;
     }
+#endif  // FB_HACK
     
     if (wipe_direction) {
       // First, draw the previous face.
@@ -691,6 +711,7 @@ void handle_init() {
   mins_background = gbitmap_create_with_resource(RESOURCE_ID_MINS_BACKGROUND);
 
   struct Layer *root_layer = window_get_root_layer(window);
+
   face_layer = layer_create(layer_get_bounds(root_layer));
   layer_set_update_proc(face_layer, &face_layer_update_callback);
   layer_add_child(root_layer, face_layer);
