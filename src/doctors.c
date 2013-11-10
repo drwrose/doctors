@@ -2,10 +2,10 @@
 
 // Define this during development to make it easier to see animations
 // in a timely fashion.
-#define FAST_TIME 1
+//#define FAST_TIME 1
 
 // Define this to enable the buzzer at the top of the hour.
-//#define HOUR_BUZZER 1
+#define HOUR_BUZZER 1
 
 // Define this to limit the set of sprites to just the Tardis (to
 // reduce resource size).  You also need to remove the other sprites
@@ -34,16 +34,16 @@ GBitmap *mins_background;
 
 // These are filled in only during a transition (while face_transition
 // is true).
-bool has_prev_image = false;
-GBitmap *prev_image;
-bool has_curr_image = false;
-GBitmap *curr_image;
+GBitmap *prev_image = NULL;
+GBitmap *curr_image = NULL;
 
 // The mask and image for the moving sprite across the wipe.
-bool has_sprite_mask = false;
-GBitmap *sprite_mask;
-bool has_sprite = false;
-GBitmap *sprite;
+GBitmap *sprite_mask = NULL;
+GBitmap *sprite = NULL;
+
+// Set this true to grab the currently-visible framebuffer data and
+// store it in prev_image.
+bool grab_fb_image = false;
 
 // The horizontal center point of the sprite.
 int sprite_cx = 0;
@@ -338,11 +338,10 @@ struct GContext {
 // Initializes the indicated GBitmap with a copy of the current
 // framebuffer data.  Hacky!  Free it later with gbitmap_destroy().
 GBitmap *
-fb_gbitmap_create(int ref_resource_id) {
+fb_gbitmap_create(struct GContext *ctx, int ref_resource_id) {
   GBitmap *image;
   image = gbitmap_create_with_resource(ref_resource_id);
 
-  /*
   int height = image->bounds.size.h;
   int width = image->bounds.size.w;  // multiple of 8, by our convention.
   int stride = image->row_size_bytes; // multiple of 4, by Pebble.
@@ -351,11 +350,11 @@ fb_gbitmap_create(int ref_resource_id) {
     return image;
   }
 
-  struct GContext *gctx = app_get_current_graphics_context();
-  uint8_t *framebuffer = *gctx->framebuffer;
+  // This doesn't work in SDK 2.0.  The framebuffer must be stored elsewhere.
+  //uint8_t *framebuffer = *ctx->framebuffer;
+  //memcpy(image->addr, framebuffer, stride * height);
 
-  memcpy(image->addr, framebuffer, stride * height);
-  */
+  memset(image->addr, 0x00, stride * height);
   return image;
 }
 
@@ -364,24 +363,24 @@ void stop_transition() {
   face_transition = false;
 
   // Release the transition resources.
-  if (has_curr_image) {
+  if (curr_image != NULL) {
     gbitmap_destroy(curr_image);
-    has_curr_image = false;
+    curr_image = NULL;
   }
 
-  if (has_prev_image) {
+  if (prev_image != NULL) {
     gbitmap_destroy(prev_image);
-    has_prev_image = false;
+    prev_image = NULL;
   }
 
-  if (has_sprite_mask) {
+  if (sprite_mask != NULL) {
     gbitmap_destroy(sprite_mask);
-    has_sprite_mask = false;
+    sprite_mask = NULL;
   }
 
-  if (has_sprite) {
+  if (sprite != NULL) {
     gbitmap_destroy(sprite);
-    has_sprite = false;
+    sprite = NULL;
   }
 
   // Stop the transition timer.
@@ -407,16 +406,13 @@ void start_transition(int face_new, bool for_startup) {
   // Initialize the transition resources.
   if (prev_face_value >= 0) {
     prev_image = gbitmap_create_with_resource(face_resource_ids[prev_face_value]);
-    has_prev_image = true;
-  } else {
+  } else if (for_startup) {
     // When we don't have a previous face, use whatever's already in
     // the framebuffer.  This is the startup case.
-    prev_image = fb_gbitmap_create(RESOURCE_ID_ONE);
-    has_prev_image = true;
+    grab_fb_image = true;
   }
 
   curr_image = gbitmap_create_with_resource(face_resource_ids[face_value]);
-  has_curr_image = true;
 
   int sprite_sel;
 
@@ -437,7 +433,6 @@ void start_transition(int face_new, bool for_startup) {
   // Initialize the sprite.
   switch (sprite_sel) {
   case SPRITE_TARDIS:
-    has_sprite_mask = true;
     sprite_mask = rle_gbitmap_create(RESOURCE_ID_TARDIS_MASK, RESOURCE_ID_TARDIS_01);
     
     sprite_cx = 72;
@@ -445,9 +440,7 @@ void start_transition(int face_new, bool for_startup) {
 
 #ifndef TARDIS_ONLY
   case SPRITE_K9:
-    has_sprite_mask = true;
     sprite_mask = rle_gbitmap_create(RESOURCE_ID_K9_MASK, RESOURCE_ID_K9);
-    has_sprite = true;
     sprite = gbitmap_create_with_resource(RESOURCE_ID_K9);
     sprite_cx = 41;
 
@@ -459,9 +452,7 @@ void start_transition(int face_new, bool for_startup) {
     break;
 
   case SPRITE_DALEK:
-    has_sprite_mask = true;
     sprite_mask = rle_gbitmap_create(RESOURCE_ID_DALEK_MASK, RESOURCE_ID_DALEK);
-    has_sprite = true;
     sprite = gbitmap_create_with_resource(RESOURCE_ID_DALEK);
     sprite_cx = 74;
 
@@ -527,11 +518,16 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     GRect destination = layer_get_frame(me);
     destination.origin.x = 0;
     destination.origin.y = 0;
+
+    if (grab_fb_image && prev_image == NULL) {
+      prev_image = fb_gbitmap_create(ctx, RESOURCE_ID_ONE);
+      grab_fb_image = false;
+    }
     
     if (wipe_direction) {
       // First, draw the previous face.
       if (wipe_x < SCREEN_WIDTH) {
-        if (has_prev_image) {
+        if (prev_image != NULL) {
           graphics_context_set_compositing_mode(ctx, GCompOpAssign);
           graphics_draw_bitmap_in_rect(ctx, prev_image, destination);
         } else {
@@ -543,7 +539,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
       if (wipe_x > 0) {
         // Then, draw the new face on top of it, reducing the size to wipe
         // from right to left.
-        if (has_curr_image) {
+        if (curr_image != NULL) {
           destination.size.w = wipe_x;
           graphics_draw_bitmap_in_rect(ctx, curr_image, destination);
         }
@@ -551,7 +547,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     } else {
       // First, draw the new face.
       if (wipe_x < SCREEN_WIDTH) {
-        if (has_curr_image) {
+        if (curr_image != NULL) {
           graphics_context_set_compositing_mode(ctx, GCompOpAssign);
           graphics_draw_bitmap_in_rect(ctx, curr_image, destination);
         }
@@ -561,7 +557,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
         // Then, draw the previous face on top of it, reducing the size to wipe
         // from right to left.
         destination.size.w = wipe_x;
-        if (has_prev_image) {
+        if (prev_image != NULL) {
           graphics_draw_bitmap_in_rect(ctx, prev_image, destination);
         } else {
           graphics_context_set_fill_color(ctx, GColorBlack);
@@ -570,7 +566,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
       }
     }
 
-    if (has_sprite_mask) {
+    if (sprite_mask != NULL) {
       // Then, draw the sprite on top of the wipe line.
       destination.size.w = sprite_mask->bounds.size.w;
       destination.size.h = sprite_mask->bounds.size.h;
@@ -579,7 +575,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
       graphics_context_set_compositing_mode(ctx, GCompOpClear);
       graphics_draw_bitmap_in_rect(ctx, sprite_mask, destination);
       
-      if (has_sprite) {
+      if (sprite != NULL) {
         // Fixed sprite case.
         graphics_context_set_compositing_mode(ctx, GCompOpOr);
         graphics_draw_bitmap_in_rect(ctx, sprite, destination);
