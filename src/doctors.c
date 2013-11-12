@@ -9,7 +9,7 @@
 //#define FB_HACK 1
 
 // Define this to enable the buzzer at the top of the hour.
-#define HOUR_BUZZER 1
+//#define HOUR_BUZZER 1
 
 // Define this to limit the set of sprites to just the Tardis (to
 // reduce resource size).  You also need to remove the other sprites
@@ -323,13 +323,13 @@ void set_next_timer() {
   if (face_transition) {
     // If the animation is underway, we need to fire the timer at
     // ANIM_TICK_MS intervals.
-    anim_timer = app_timer_register(ANIM_TICK_MS, handle_timer, 0);
+    anim_timer = app_timer_register(ANIM_TICK_MS, &handle_timer, 0);
 
   } else {
 #ifdef HOUR_BUZZER
     // Otherwise, we only need a timer to tell us to buzz at (almost)
     // the top of the hour.
-    anim_timer = app_timer_register(next_buzzer_ms, handle_timer, 0);
+    anim_timer = app_timer_register(next_buzzer_ms, &handle_timer, 0);
 #endif  // HOUR_BUZZER
   }
 }
@@ -481,14 +481,16 @@ void start_transition(int face_new, bool for_startup) {
   set_next_timer();
 }
 
-void face_layer_update_callback(Layer *me, GContext* ctx) {
+void root_layer_update_callback(Layer *me, GContext* ctx) {
 #ifdef FB_HACK
   if (fb_image == NULL && first_update) {
     first_update = false;
     fb_image = fb_gbitmap_create(ctx, RESOURCE_ID_ONE);
   }
 #endif
+}
 
+void face_layer_update_callback(Layer *me, GContext* ctx) {
   int ti = 0;
   
   if (face_transition) {
@@ -684,33 +686,27 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
 }
 
 void handle_init() {
-  time_t now;
-  struct tm *startup_time;
-
-  srand(time(NULL));
-  //  resource_init_current_app(&APP_RESOURCES);
+  time_t now = time(NULL);
+  struct tm *startup_time = localtime(&now);
+  srand(now);
 
   face_transition = false;
-  now = time(NULL);
-  startup_time = localtime(&now);
   face_value = -1;
   last_buzz_hour = -1;
   minute_value = startup_time->tm_min;
   
   window = window_create();
+  // GColorClear doesn't seem to work: it is the same as GColorWhite in this context.
+  window_set_background_color(window, GColorClear);
+  struct Layer *root_layer = window_get_root_layer(window);
+  layer_set_update_proc(root_layer, &root_layer_update_callback);
 
-  // Instead of animating the window push, we handle the opening push
-  // ourselves (with the spinning TARDIS layered on top of a captured
-  // copy of the framebuffer image).
-
-  // NB: there doesn't seem to be a way to determine the expected
-  // direction of the window slide (i.e., whether we came to the app
-  // via the left or the right button).
-  window_stack_push(window, false /* not animated */);
+  // We pass false in an attempt to not use the window animation,
+  // since we'll be animating the TARDIS transition ourselves.
+  // Doesn't appear to work--it's always animated anyway.
+  window_stack_push(window, false);
 
   mins_background = gbitmap_create_with_resource(RESOURCE_ID_MINS_BACKGROUND);
-
-  struct Layer *root_layer = window_get_root_layer(window);
 
   face_layer = layer_create(layer_get_bounds(root_layer));
   layer_set_update_proc(face_layer, &face_layer_update_callback);
@@ -732,32 +728,13 @@ void handle_init() {
 void handle_deinit() {
   tick_timer_service_unsubscribe();
 
-  gbitmap_destroy(mins_background);
   stop_transition();
 
+  gbitmap_destroy(mins_background);
   layer_destroy(minute_layer);
   layer_destroy(face_layer);
   window_destroy(window);
 }
-
-/*
-void pbl_main(void *params) {
-  PebbleAppHandlers handlers = {
-    .init_handler = &handle_init,
-    .deinit_handler = &handle_deinit,
-    .tick_info = {
-      .tick_handler = &handle_tick,
-#ifdef FAST_TIME
-      .tick_units = SECOND_UNIT
-#else
-      .tick_units = MINUTE_UNIT
-#endif
-    },
-    .timer_handler = &handle_timer,
-  };
-  app_event_loop(params, &handlers);
-}
-*/
 
 int main(void) {
   handle_init();
