@@ -4,6 +4,7 @@ import PIL.Image
 import sys
 import os
 import getopt
+import zlib
 
 help = """
 make_rle.py
@@ -109,7 +110,7 @@ def make_rle(filename):
     rle.write(''.join(map(chr, result)))
     rle.close()
     
-    print '%s: %s vs. %s' % (rleFilename, 2 + len(result), w * h / 8)
+    print '%s: %s vs. %s' % (rleFilename, 3 + len(result), w * h / 8)
     
 
 def make_rl2(filename):
@@ -133,10 +134,38 @@ def make_rl2(filename):
     rl2Filename = basename + '.rl2'
     rl2 = open(rl2Filename, 'wb')
     rl2.write('%c%c%c' % (w, h, stride))
-    rl2.write(''.join(map(chr, result)))
+    rl2.write(''.join(map(lambda c: chr(c & 0xff), result)))
     rl2.close()
     
-    print '%s: %s vs. %s' % (rl2Filename, 2 + len(result), w * h / 8)
+    print '%s: %s vs. %s' % (rl2Filename, 3 + len(result), w * h / 8)
+
+def make_sz(filename):
+    image = PIL.Image.open(filename)
+    image = image.convert('1')
+    w, h = image.size
+    assert w <= 0xff and h <= 0xff
+    assert w % 8 == 0  # must be a multiple of 8 pixels wide.
+
+    # The number of bytes in a row.  Must be a multiple of 4, per
+    # Pebble conventions.
+    stride = (w + 7) / 8
+    stride = 4 * ((stride + 3) / 4)
+    assert stride <= 0xff
+
+    result = list(generate_pixels(image, stride))
+    assert(len(result) == h * stride * 8)
+
+    str = ''.join(map(chr, result))
+    strz = zlib.compress(str, 9)
+
+    basename = os.path.splitext(filename)[0]
+    szFilename = basename + '.sz'
+    sz = open(szFilename, 'wb')
+    sz.write('%c%c%c' % (w, h, stride))
+    sz.write(strz)
+    sz.close()
+    
+    print '%s: %s vs. %s' % (szFilename, 3 + len(strz), w * h / 8)
     
 
 # Main.
@@ -151,4 +180,4 @@ for opt, arg in opts:
 
 print args
 for filename in args:
-    make_rl2(filename)
+    make_sz(filename)

@@ -1,5 +1,5 @@
 #include <pebble.h>
-#include "libnsgif.h"
+#include "picojpeg.h"
 #include "assert.h"
 
 // Define this during development to make it easier to see animations
@@ -158,22 +158,28 @@ void flip_bitmap_x(GBitmap *image) {
   }
 }
 
-#define RBUFFER_SIZE 1024
+#define RBUFFER_SIZE 256
 typedef struct {
   ResHandle _rh;
   size_t _i;
   size_t _filled_size;
   size_t _bytes_read;
-  uint8_t _buffer[RBUFFER_SIZE];
+  uint8_t *_buffer;
 } RBuffer;
 
 // Begins reading from a raw resource.  Should be matched by a later
 // call to rbuffer_deinit() to free this stuff.
 void rbuffer_init(int resource_id, RBuffer *rb) {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "rbuffer_init(%d, %p)", resource_id, rb);
+  rb->_buffer = (uint8_t *)malloc(RBUFFER_SIZE);
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "buffer = %p", rb->_buffer);
+  assert(rb->_buffer != NULL);
+  
   rb->_rh = resource_get_handle(resource_id);
   rb->_i = 0;
   rb->_filled_size = resource_load_byte_range(rb->_rh, 0, rb->_buffer, RBUFFER_SIZE);
   rb->_bytes_read = rb->_filled_size;
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done rbuffer_init, read %d", rb->_bytes_read);
 }
 
 // Gets the next byte from the rbuffer.  Returns EOF at end.
@@ -192,9 +198,26 @@ int rbuffer_getc(RBuffer *rb) {
   return result;
 }
 
+// Gets the next read_size bytes from the rbuffer.  Returns the number
+// of bytes read.
+size_t rbuffer_read(RBuffer *rb, uint8_t *buffer, size_t read_size) {
+  /* TODO. */
+  for (size_t i = 0; i < read_size; ++i) {
+    int ch = rbuffer_getc(rb);
+    if (ch == EOF) {
+      return i;
+    }
+    buffer[i] = ch;
+  }
+  return read_size;
+}
+
 // Frees the resources reserved in rbuffer_init().
 void rbuffer_deinit(RBuffer *rb) {
-  // Actually, we don't need to do anything here.
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "rbuffer_deinit(%p), %p", rb, rb->_buffer);
+  assert(rb->_buffer != NULL);
+  free(rb->_buffer);
+  rb->_buffer = NULL;
 }
 
 // From bitmapgen.py:
@@ -241,6 +264,7 @@ void bwd_destroy(BitmapWithData *bwd) {
 // to gbitmap_create_with_resource.
 BitmapWithData
 rle_bwd_create(int resource_id) {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "rle_bwd_create(%d)", resource_id);
   // Get the RLE bytes from the resource.
   RBuffer rb;
   rbuffer_init(resource_id, &rb);
@@ -251,6 +275,7 @@ rle_bwd_create(int resource_id) {
   size_t data_size = r_height * r_stride;
   size_t total_size = sizeof(BitmapDataHeader) + data_size;
   uint8_t *bitmap = (uint8_t *)malloc(total_size);
+  assert(bitmap != NULL);
   memset(bitmap, 0, total_size);
   BitmapDataHeader *bitmap_header = (BitmapDataHeader *)bitmap;
   uint8_t *bitmap_data = bitmap + sizeof(BitmapDataHeader);
@@ -303,9 +328,11 @@ rle_bwd_create(int resource_id) {
   rbuffer_deinit(&rb);
 
   GBitmap *image = gbitmap_create_with_data(bitmap);
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done rle_bwd_create, returning image %p", image);
   return bwd_create(image, bitmap);
 }
 
+/*
 void *do_bitmap_cb_create(int width, int height) {
   int stride = ((width + 31) / 32) * 4;
   size_t data_size = height * stride;
@@ -319,51 +346,61 @@ void *do_bitmap_cb_create(int width, int height) {
 
   return bitmap;
 }
+*/
 
-void do_bitmap_cb_destroy(void *bitmap) {
-  free(bitmap);
+unsigned char jpeg_need_bytes_callback(unsigned char* pBuf, unsigned char buf_size, unsigned char *pBytes_actually_read, void *pCallback_data) {
+  RBuffer *rb = (RBuffer *)pCallback_data;
+  *pBytes_actually_read = rbuffer_read(rb, (uint8_t *)pBuf, buf_size);
+  return 0;
 }
 
-unsigned char *do_bitmap_cb_get_buffer(void *bitmap) {
-  uint8_t *bitmap_data = (uint8_t *)bitmap + sizeof(BitmapDataHeader);
-  return (unsigned char *)bitmap_data;
-}
 
-
-// Initialize a bitmap from a gif-encoded resource.  Behaves similarly
+// Initialize a bitmap from a jpeg-encoded resource.  Behaves similarly
 // to gbitmap_create_with_resource.
 BitmapWithData
-gif_bwd_create(int resource_id) {
-  ResHandle rh = resource_get_handle(resource_id);
+jpeg_bwd_create(int resource_id) {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "jpeg_bwd_create(%d)", resource_id);
+  RBuffer rb;
+  rbuffer_init(resource_id, &rb);
 
-  size_t gifdata_size = resource_size(rh);
-  uint8_t *gifdata_buffer = (uint8_t *)malloc(gifdata_size);
-  assert(gifdata_buffer != (uint8_t *)NULL);
-  size_t loaded_size = resource_load_byte_range(rh, 0, gifdata_buffer, gifdata_size);
-  assert(loaded_size == gifdata_size);
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Got resource\n");
 
-  struct gif_animation gif;
-  gif_bitmap_callback_vt bitmap_callbacks;
-  memset(&bitmap_callbacks, 0, sizeof(bitmap_callbacks));
-  bitmap_callbacks.bitmap_create = &do_bitmap_cb_create;
-  bitmap_callbacks.bitmap_destroy = &do_bitmap_cb_destroy;
-  bitmap_callbacks.bitmap_get_buffer = &do_bitmap_cb_get_buffer;
+  pjpeg_image_info_t jinfo;
+  int result = pjpeg_decode_init(&jinfo, &jpeg_need_bytes_callback, (void *)&rb, 0);
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "init_result = %d", result);
+  assert(result == 0);
 
-  gif_create(&gif, &bitmap_callbacks);
-  gif_result result = gif_initialise(&gif, gifdata_size, gifdata_buffer);
-  while (result != GIF_WORKING || gif.buffer_position < gifdata_size) {
-    result = gif_initialise(&gif, gifdata_size, gifdata_buffer);
+  int r_width = jinfo.m_width;
+  int r_height = jinfo.m_height;
+  int r_stride = ((r_width + 31) / 32) * 4;
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "width: %d, height: %d, stride: %d", r_width, r_height, r_stride);
+
+  /*
+  r_width = 50;
+  r_height = 50;
+  r_stride = ((r_width + 31) / 32) * 4;
+  */
+
+  size_t data_size = r_height * r_stride;
+  size_t total_size = sizeof(BitmapDataHeader) + data_size;
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "total_size = %d", total_size);
+  uint8_t *bitmap = (uint8_t *)malloc(total_size);
+  assert(bitmap != NULL);
+  memset(bitmap, 0, total_size);
+  BitmapDataHeader *bitmap_header = (BitmapDataHeader *)bitmap;
+  uint8_t *bitmap_data = bitmap + sizeof(BitmapDataHeader);
+  bitmap_header->row_size_bytes = r_stride;
+  bitmap_header->size_w = r_width;
+  bitmap_header->size_h = r_height;
+
+  /*
+  while (pjpeg_decode_mcu() == 0) {
   }
-  assert(gif.frame_count > 0);
+  */
 
-  result = gif_decode_frame(&gif, 0);
-  uint8_t *bitmap = (uint8_t *)gif.frame_image;
-  gif.frame_image = NULL;
-  gif_finalise(&gif);
-
-  free(gifdata_buffer);
-
+  rbuffer_deinit(&rb);
   GBitmap *image = gbitmap_create_with_data(bitmap);
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done jpeg_bwd_create, returning image %p", image);
   return bwd_create(image, bitmap);
 }
 
@@ -463,6 +500,7 @@ fb_gbitmap_create(struct GContext *ctx, int ref_resource_id) {
 
 
 void stop_transition() {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "stop_transition()");
   face_transition = false;
 
   // Release the transition resources.
@@ -491,9 +529,11 @@ void stop_transition() {
     app_timer_cancel(anim_timer);
     anim_timer = NULL;
   }
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done stop_transition()");
 }
 
 void start_transition(int face_new, bool for_startup) {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "start_transition(%d, %d)", face_new, for_startup);
   if (face_transition) {
     stop_transition();
   }
@@ -532,6 +572,7 @@ void start_transition(int face_new, bool for_startup) {
   // Initialize the sprite.
   switch (sprite_sel) {
   case SPRITE_TARDIS:
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "SPRITE_TARDIS");
     sprite_mask = rle_bwd_create(RESOURCE_ID_TARDIS_MASK);
     
     sprite_cx = 72;
@@ -539,8 +580,9 @@ void start_transition(int face_new, bool for_startup) {
 
 #ifndef TARDIS_ONLY
   case SPRITE_K9:
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "SPRITE_K9");
     sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
-    sprite = gif_bwd_create(RESOURCE_ID_K9);
+    sprite = jpeg_bwd_create(RESOURCE_ID_K9);
     sprite_cx = 41;
 
     if (wipe_direction) {
@@ -551,8 +593,9 @@ void start_transition(int face_new, bool for_startup) {
     break;
 
   case SPRITE_DALEK:
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "SPRITE_DALEK");
     sprite_mask = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
-    sprite = gif_bwd_create(RESOURCE_ID_DALEK);
+    sprite = jpeg_bwd_create(RESOURCE_ID_DALEK);
     sprite_cx = 74;
 
     if (wipe_direction) {
@@ -567,9 +610,11 @@ void start_transition(int face_new, bool for_startup) {
   // Start the transition timer.
   layer_mark_dirty(face_layer);
   set_next_timer();
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done start_transition()");
 }
 
 void face_layer_update_callback(Layer *me, GContext* ctx) {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_layer_update_callback()");
 #ifdef FB_HACK
   if (fb_image == NULL && first_update) {
     first_update = false;
@@ -692,20 +737,24 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
         // Tardis case.  Since it's animated, but we don't have enough
         // RAM to hold all the frames at once, we have to load one frame
         // at a time as we need it.
-        GBitmap *tardis;
+        app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "tardis case");
         int af = ti % NUM_TARDIS_FRAMES;
         if (anim_direction) {
           af = (NUM_TARDIS_FRAMES - 1) - af;
         }
-        tardis = gbitmap_create_with_resource(tardis_frames[af].tardis);
-        if (tardis_frames[af].flip_x) {
-          flip_bitmap_x(tardis);
+        GBitmap *tardis = gbitmap_create_with_resource(tardis_frames[af].tardis);
+        app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "tardis = %p", tardis);
+        if (tardis != NULL) {
+          if (tardis_frames[af].flip_x) {
+            flip_bitmap_x(tardis);
+          }
+          
+          graphics_context_set_compositing_mode(ctx, GCompOpOr);
+          graphics_draw_bitmap_in_rect(ctx, tardis, destination);
+          
+          gbitmap_destroy(tardis);
         }
-        
-        graphics_context_set_compositing_mode(ctx, GCompOpOr);
-        graphics_draw_bitmap_in_rect(ctx, tardis, destination);
-        
-        gbitmap_destroy(tardis);
+        app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done tardis case");
       }
       
       // Finally, re-draw the minutes background card on top of the sprite.
@@ -717,6 +766,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
       graphics_draw_bitmap_in_rect(ctx, mins_background, destination);
     }
   }
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done face_layer_update_callback()");
 }
   
 void minute_layer_update_callback(Layer *me, GContext* ctx) {
@@ -798,6 +848,7 @@ void handle_init() {
   window_stack_push(window, false /* not animated */);
 
   mins_background = gbitmap_create_with_resource(RESOURCE_ID_MINS_BACKGROUND);
+  assert(mins_background != NULL);
 
   struct Layer *root_layer = window_get_root_layer(window);
 
@@ -831,6 +882,8 @@ void handle_deinit() {
 
 int main(void) {
   handle_init();
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting");
+
   app_event_loop();
   handle_deinit();
 }
