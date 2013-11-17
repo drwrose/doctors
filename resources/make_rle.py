@@ -57,6 +57,34 @@ def generate_rle(source):
         current = next
         count = 0
 
+def generate_rl2(source):
+    """ This generator yields a sequence of run lengths of run
+    lengths.  The expectation is that the input will be a series of
+    nonnegative numbers, with several sequences of 1.  The sequences
+    of 1 are replaced by negative run-counts. """
+
+    count = 0
+    next = source.next()
+    while True:
+        if next == 1:
+            while next == 1:
+                count += 1
+                if count > 0x80:
+                    # Can't exceed this number.
+                    yield -0x80
+                    count -= 0x80
+                next = source.next()
+            yield -count
+            count = 0
+        else:
+            if next > 0x7f:
+                yield 0x7f
+                yield 0
+                yield next - 0x7f
+            else:
+                yield next
+            next = source.next()
+
 def make_rle(filename):
     image = PIL.Image.open(filename)
     image = image.convert('1')
@@ -84,6 +112,33 @@ def make_rle(filename):
     print '%s: %s vs. %s' % (rleFilename, 2 + len(result), w * h / 8)
     
 
+def make_rl2(filename):
+    image = PIL.Image.open(filename)
+    image = image.convert('1')
+    w, h = image.size
+    assert w <= 0xff and h <= 0xff
+    assert w % 8 == 0  # must be a multiple of 8 pixels wide.
+
+    # The number of bytes in a row.  Must be a multiple of 4, per
+    # Pebble conventions.
+    stride = (w + 7) / 8
+    stride = 4 * ((stride + 3) / 4)
+    assert stride <= 0xff
+
+    result = list(generate_rl2(generate_rle(generate_pixels(image, stride))))
+    print result
+    assert max(result) <= 0xff
+
+    basename = os.path.splitext(filename)[0]
+    rl2Filename = basename + '.rl2'
+    rl2 = open(rl2Filename, 'wb')
+    rl2.write('%c%c%c' % (w, h, stride))
+    rl2.write(''.join(map(chr, result)))
+    rl2.close()
+    
+    print '%s: %s vs. %s' % (rl2Filename, 2 + len(result), w * h / 8)
+    
+
 # Main.
 try:
     opts, args = getopt.getopt(sys.argv[1:], 'h')
@@ -96,4 +151,4 @@ for opt, arg in opts:
 
 print args
 for filename in args:
-    make_rle(filename)
+    make_rl2(filename)

@@ -103,9 +103,9 @@
         "file": "tardis_masks.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "K9",
-        "file": "k9.png"
+        "file": "k9.gif"
       },
       {
         "type": "raw",
@@ -113,9 +113,9 @@
         "file": "k9_mask.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "DALEK",
-        "file": "dalek.png"
+        "file": "dalek.gif"
       },
       {
         "type": "raw",
