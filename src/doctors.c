@@ -3,7 +3,7 @@
 
 // Define this during development to make it easier to see animations
 // in a timely fashion.
-#define FAST_TIME 1
+//#define FAST_TIME 1
 
 // Define this to enable the FB-grabbing hack, which might break at
 // the next SDK update.
