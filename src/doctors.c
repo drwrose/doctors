@@ -168,16 +168,13 @@ typedef struct {
 // Begins reading from a raw resource.  Should be matched by a later
 // call to rbuffer_deinit() to free this stuff.
 void rbuffer_init(int resource_id, RBuffer *rb) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "rbuffer_init(%d, %p)", resource_id, rb);
   rb->_buffer = (uint8_t *)malloc(RBUFFER_SIZE);
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "buffer = %p", rb->_buffer);
   assert(rb->_buffer != NULL);
   
   rb->_rh = resource_get_handle(resource_id);
   rb->_i = 0;
   rb->_filled_size = resource_load_byte_range(rb->_rh, 0, rb->_buffer, RBUFFER_SIZE);
   rb->_bytes_read = rb->_filled_size;
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done rbuffer_init, read %d", rb->_bytes_read);
 }
 
 // Gets the next byte from the rbuffer.  Returns EOF at end.
@@ -198,7 +195,6 @@ int rbuffer_getc(RBuffer *rb) {
 
 // Frees the resources reserved in rbuffer_init().
 void rbuffer_deinit(RBuffer *rb) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "rbuffer_deinit(%p), %p", rb, rb->_buffer);
   assert(rb->_buffer != NULL);
   free(rb->_buffer);
   rb->_buffer = NULL;
@@ -325,7 +321,6 @@ int rl2unpacker_getc(Rl2Unpacker *rl2) {
 // the program that generates these rle sequences.
 BitmapWithData
 rle_bwd_create(int resource_id) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "rle_bwd_create(%d)", resource_id);
   RBuffer rb;
   rbuffer_init(resource_id, &rb);
   int width = rbuffer_getc(&rb);
@@ -395,7 +390,6 @@ rle_bwd_create(int resource_id) {
   rbuffer_deinit(&rb);
 
   GBitmap *image = gbitmap_create_with_data(bitmap);
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done rle_bwd_create, returning image %p", image);
   return bwd_create(image, bitmap);
 }
 
@@ -495,7 +489,6 @@ fb_gbitmap_create(struct GContext *ctx, int ref_resource_id) {
 
 
 void stop_transition() {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "stop_transition()");
   face_transition = false;
 
   // Release the transition resources.
@@ -515,11 +508,9 @@ void stop_transition() {
     app_timer_cancel(anim_timer);
     anim_timer = NULL;
   }
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done stop_transition()");
 }
 
 void start_transition(int face_new, bool for_startup) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "start_transition(%d, %d)", face_new, for_startup);
   if (face_transition) {
     stop_transition();
   }
@@ -555,7 +546,6 @@ void start_transition(int face_new, bool for_startup) {
   // Initialize the sprite.
   switch (sprite_sel) {
   case SPRITE_TARDIS:
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "SPRITE_TARDIS");
     sprite_mask = rle_bwd_create(RESOURCE_ID_TARDIS_MASK);
     
     sprite_cx = 72;
@@ -563,7 +553,6 @@ void start_transition(int face_new, bool for_startup) {
 
 #ifndef TARDIS_ONLY
   case SPRITE_K9:
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "SPRITE_K9");
     sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
     sprite = rle_bwd_create(RESOURCE_ID_K9);
     sprite_cx = 41;
@@ -576,7 +565,6 @@ void start_transition(int face_new, bool for_startup) {
     break;
 
   case SPRITE_DALEK:
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "SPRITE_DALEK");
     sprite_mask = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
     sprite = rle_bwd_create(RESOURCE_ID_DALEK);
     sprite_cx = 74;
@@ -593,7 +581,6 @@ void start_transition(int face_new, bool for_startup) {
   // Start the transition timer.
   layer_mark_dirty(face_layer);
   set_next_timer();
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done start_transition()");
 }
 
 void face_layer_update_callback(Layer *me, GContext* ctx) {
@@ -711,8 +698,10 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
         graphics_draw_bitmap_in_rect(ctx, sprite.bitmap, destination);
       } else {
         // Tardis case.  Since it's animated, but we don't have enough
-        // RAM to hold all the frames at once, we have to load one frame
-        // at a time as we need it.
+        // RAM to hold all the frames at once, we have to load one
+        // frame at a time as we need it.  We don't use RLE encoding
+        // on the Tardis frames in an attempt to cut down on needless
+        // CPU work while playing this animation.
         int af = ti % NUM_TARDIS_FRAMES;
         if (anim_direction) {
           af = (NUM_TARDIS_FRAMES - 1) - af;
@@ -853,7 +842,6 @@ void handle_deinit() {
 
 int main(void) {
   handle_init();
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting");
 
   app_event_loop();
   handle_deinit();
