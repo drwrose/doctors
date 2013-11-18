@@ -3,7 +3,7 @@
 
 // Define this during development to make it easier to see animations
 // in a timely fashion.
-//#define FAST_TIME 1
+#define FAST_TIME 1
 
 // Define this to enable the FB-grabbing hack, which might break at
 // the next SDK update.
@@ -78,7 +78,9 @@ AppTimer *anim_timer = NULL;
 int minute_value;    // The current minute value displayed
 int last_buzz_hour;  // The hour at which we last sounded the buzzer.
 
-int face_resource_ids[12] = {
+bool include_hurt = true;
+
+int face_resource_ids[13] = {
   RESOURCE_ID_TWELVE,
   RESOURCE_ID_ONE,
   RESOURCE_ID_TWO,
@@ -91,6 +93,7 @@ int face_resource_ids[12] = {
   RESOURCE_ID_NINE,
   RESOURCE_ID_TEN,
   RESOURCE_ID_ELEVEN,
+  RESOURCE_ID_HURT,
 };
 
 #ifdef TARDIS_ONLY
@@ -768,8 +771,16 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
 
   face_new = tick_time->tm_hour % 12;
   minute_new = tick_time->tm_min;
+  if (include_hurt && face_new == 7 && minute_new >= 30) {
+    // Face 8.5 is John Hurt.
+    face_new = 12;
+  }
 #ifdef FAST_TIME
-  face_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 5) % 12;
+  if (include_hurt) {
+    face_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 5) % 13;
+  } else {
+    face_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 5) % 12;
+  }
   minute_new = tick_time->tm_sec;
 #endif
 

@@ -78,6 +78,11 @@
         "file": "twelve.rle"
       },
       {
+        "type": "raw",
+        "name": "HURT",
+        "file": "hurt.rle"
+      },
+      {
         "type": "png",
         "name": "TARDIS_01",
         "file": "tardis_01.png"
