@@ -127,7 +127,7 @@ TardisFrame tardis_frames[NUM_TARDIS_FRAMES] = {
   { RESOURCE_ID_TARDIS_02, true }
 };
 
-static const uint32_t tap_segments[] = { 50, 85, 50 };
+static const uint32_t tap_segments[] = { 75, 100, 75 };
 VibePattern tap = {
   tap_segments,
   3,
@@ -771,7 +771,7 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
 
   face_new = tick_time->tm_hour % 12;
   minute_new = tick_time->tm_min;
-  if (include_hurt && face_new == 7 && minute_new >= 30) {
+  if (include_hurt && face_new == 8 && minute_new >= 30) {
     // Face 8.5 is John Hurt.
     face_new = 12;
   }
