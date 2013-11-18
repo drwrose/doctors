@@ -141,7 +141,7 @@ class Rl2Unpacker:
         if self.si >= len(self.str):
             return 0
         
-        # First, count the number of 0 bits until we come to a one bit.
+        # First, count the number of 0 bits until we come to a 1 bit.
         bitCount = 1
         b = ord(self.str[self.si])
         bv = b & (1 << (self.bi - 1))

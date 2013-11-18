@@ -321,14 +321,14 @@ rle_bwd_create(int resource_id) {
 // original rle sequence.  See make_rle.py.
 typedef struct {
   RBuffer *rb;
-  int _b;
-  int _bi;
+  int b;
+  int bi;
 } Rl2Unpacker;
 
 void rl2unpacker_init(Rl2Unpacker *rl2, RBuffer *rb) {
   memset(rl2, 0, sizeof(Rl2Unpacker));
   rl2->rb = rb;
-  rl2->b = rb->get();
+  rl2->b = rbuffer_getc(rb);
   rl2->bi = 8;
 }
 
@@ -338,14 +338,14 @@ int rl2unpacker_getc(Rl2Unpacker *rl2) {
     return EOF;
   }
 
-  // First, count the number of 0 bits until we come to a one bit.
+  // First, count the number of 0 bits until we come to a 1 bit.
   int bit_count = 1;
   int bv = (rl2->b & (1 << (rl2->bi - 1)));
   while (bv == 0) {
     ++bit_count;
     --(rl2->bi);
     if (rl2->bi <= 0) {
-      rl2->b = rl2->rb->getc();
+      rl2->b = rbuffer_getc(rl2->rb);
       rl2->bi = 8;
       if (rl2->b == EOF) {
         return EOF;
@@ -354,6 +354,32 @@ int rl2unpacker_getc(Rl2Unpacker *rl2) {
     bv = (rl2->b & (1 << (rl2->bi - 1)));
   }
 
+  // OK, now we need to extract the next bitCount bits into a word.
+  int result = 0;
+  while (bit_count >= rl2->bi) {
+    int mask = (1 << rl2->bi) - 1;
+    int value = (rl2->b & mask);
+    result = (result << rl2->bi) | value;
+    bit_count -= rl2->bi;
+
+    rl2->b = rbuffer_getc(rl2->rb);
+    rl2->bi = 8;
+    if (rl2->b == EOF) {
+      break;
+    }
+  }
+
+  if (bit_count > 0) {
+    // A partial word in the middle of the byte.
+    int bottom_count = rl2->bi - bit_count;
+    assert(bottom_count > 0);
+    int mask = ((1 << bit_count) - 1);
+    int value = ((rl2->b >> bottom_count) & mask);
+    result = (result << bit_count) | value;
+    rl2->bi -= bit_count;
+  }
+
+  return result;
 }
   
 
@@ -368,11 +394,13 @@ rl2_bwd_create(int resource_id) {
   int r_height = rbuffer_getc(&rb);
   int r_stride = rbuffer_getc(&rb);
 
+  Rl2Unpacker rl2;
+  rl2unpacker_init(&rl2, &rb);
+
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Got resource\n");
 
   size_t data_size = r_height * r_stride;
   size_t total_size = sizeof(BitmapDataHeader) + data_size;
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "total_size = %d", total_size);
   uint8_t *bitmap = (uint8_t *)malloc(total_size);
   assert(bitmap != NULL);
   memset(bitmap, 0, total_size);
@@ -382,15 +410,50 @@ rl2_bwd_create(int resource_id) {
   bitmap_header->size_w = r_width;
   bitmap_header->size_h = r_height;
 
-  inflateInit(NULL);
-  inflate(NULL, 0);
-  
-  /*
-  while (pjpeg_decode_mcu() == 0) {
+  // The initial value is 0.
+  uint8_t *dp = bitmap_data;
+  uint8_t *dp_stop = dp + r_stride * r_height;
+  int value = 0;
+  int b = 0;
+  int count = rl2unpacker_getc(&rl2);
+  while (count != EOF) {
+    assert(dp < dp_stop);
+    if (value) {
+      // Generate count 1-bits.
+      int b1 = b + count;
+      if (b1 < 8) {
+        // We're still within the same byte.
+        int mask = ~((1 << (b)) - 1);
+        mask &= ((1 << (b1)) - 1);
+        *dp |= mask;
+        b = b1;
+      } else {
+        // We've crossed over a byte boundary.
+        *dp |= ~((1 << (b)) - 1);
+        ++dp;
+        b += 8;
+        while (b1 / 8 != b / 8) {
+          assert(dp < dp_stop);
+          *dp = 0xff;
+          ++dp;
+          b += 8;
+        }
+        b1 = b1 % 8;
+        assert(dp < dp_stop);
+        *dp |= ((1 << (b1)) - 1);
+        b = b1;
+      }
+    } else {
+      // Skip over count 0-bits.
+      b += count;
+      dp += b / 8;
+      b = b % 8;
+    }
+    value = 1 - value;
+    count = rl2unpacker_getc(&rl2);
   }
-  */
-
   rbuffer_deinit(&rb);
+
   GBitmap *image = gbitmap_create_with_data(bitmap);
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done rl2_bwd_create, returning image %p", image);
   return bwd_create(image, bitmap);
