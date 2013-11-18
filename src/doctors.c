@@ -1,5 +1,4 @@
 #include <pebble.h>
-#include "picojpeg.h"
 #include "assert.h"
 
 // Define this during development to make it easier to see animations
@@ -198,20 +197,6 @@ int rbuffer_getc(RBuffer *rb) {
   return result;
 }
 
-// Gets the next read_size bytes from the rbuffer.  Returns the number
-// of bytes read.
-size_t rbuffer_read(RBuffer *rb, uint8_t *buffer, size_t read_size) {
-  /* TODO. */
-  for (size_t i = 0; i < read_size; ++i) {
-    int ch = rbuffer_getc(rb);
-    if (ch == EOF) {
-      return i;
-    }
-    buffer[i] = ch;
-  }
-  return read_size;
-}
-
 // Frees the resources reserved in rbuffer_init().
 void rbuffer_deinit(RBuffer *rb) {
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "rbuffer_deinit(%p), %p", rb, rb->_buffer);
@@ -332,54 +317,58 @@ rle_bwd_create(int resource_id) {
   return bwd_create(image, bitmap);
 }
 
-/*
-void *do_bitmap_cb_create(int width, int height) {
-  int stride = ((width + 31) / 32) * 4;
-  size_t data_size = height * stride;
-  size_t total_size = sizeof(BitmapDataHeader) + data_size;
-  uint8_t *bitmap = (uint8_t *)malloc(total_size);
-  memset(bitmap, 0, total_size);
-  BitmapDataHeader *bitmap_header = (BitmapDataHeader *)bitmap;
-  bitmap_header->row_size_bytes = stride;
-  bitmap_header->size_w = width;
-  bitmap_header->size_h = height;
+// Used to unpack the integers of an rl2-encoding back into their
+// original rle sequence.  See make_rle.py.
+typedef struct {
+  RBuffer *rb;
+  int _b;
+  int _bi;
+} Rl2Unpacker;
 
-  return bitmap;
-}
-*/
-
-unsigned char jpeg_need_bytes_callback(unsigned char* pBuf, unsigned char buf_size, unsigned char *pBytes_actually_read, void *pCallback_data) {
-  RBuffer *rb = (RBuffer *)pCallback_data;
-  *pBytes_actually_read = rbuffer_read(rb, (uint8_t *)pBuf, buf_size);
-  return 0;
+void rl2unpacker_init(Rl2Unpacker *rl2, RBuffer *rb) {
+  memset(rl2, 0, sizeof(Rl2Unpacker));
+  rl2->rb = rb;
+  rl2->b = rb->get();
+  rl2->bi = 8;
 }
 
+// Gets the next integer from the rl2 encoding.  Returns EOF at end.
+int rl2unpacker_getc(Rl2Unpacker *rl2) {
+  if (rl2->b == EOF) {
+    return EOF;
+  }
 
-// Initialize a bitmap from a jpeg-encoded resource.  Behaves similarly
+  // First, count the number of 0 bits until we come to a one bit.
+  int bit_count = 1;
+  int bv = (rl2->b & (1 << (rl2->bi - 1)));
+  while (bv == 0) {
+    ++bit_count;
+    --(rl2->bi);
+    if (rl2->bi <= 0) {
+      rl2->b = rl2->rb->getc();
+      rl2->bi = 8;
+      if (rl2->b == EOF) {
+        return EOF;
+      }
+    }
+    bv = (rl2->b & (1 << (rl2->bi - 1)));
+  }
+
+}
+  
+
+// Initialize a bitmap from a rl2-encoded resource.  Behaves similarly
 // to gbitmap_create_with_resource.
 BitmapWithData
-jpeg_bwd_create(int resource_id) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "jpeg_bwd_create(%d)", resource_id);
+rl2_bwd_create(int resource_id) {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "rl2_bwd_create(%d)", resource_id);
   RBuffer rb;
   rbuffer_init(resource_id, &rb);
+  int r_width = rbuffer_getc(&rb);
+  int r_height = rbuffer_getc(&rb);
+  int r_stride = rbuffer_getc(&rb);
 
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Got resource\n");
-
-  pjpeg_image_info_t jinfo;
-  int result = pjpeg_decode_init(&jinfo, &jpeg_need_bytes_callback, (void *)&rb, 0);
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "init_result = %d", result);
-  assert(result == 0);
-
-  int r_width = jinfo.m_width;
-  int r_height = jinfo.m_height;
-  int r_stride = ((r_width + 31) / 32) * 4;
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "width: %d, height: %d, stride: %d", r_width, r_height, r_stride);
-
-  /*
-  r_width = 50;
-  r_height = 50;
-  r_stride = ((r_width + 31) / 32) * 4;
-  */
 
   size_t data_size = r_height * r_stride;
   size_t total_size = sizeof(BitmapDataHeader) + data_size;
@@ -393,6 +382,9 @@ jpeg_bwd_create(int resource_id) {
   bitmap_header->size_w = r_width;
   bitmap_header->size_h = r_height;
 
+  inflateInit(NULL);
+  inflate(NULL, 0);
+  
   /*
   while (pjpeg_decode_mcu() == 0) {
   }
@@ -400,7 +392,7 @@ jpeg_bwd_create(int resource_id) {
 
   rbuffer_deinit(&rb);
   GBitmap *image = gbitmap_create_with_data(bitmap);
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done jpeg_bwd_create, returning image %p", image);
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "done rl2_bwd_create, returning image %p", image);
   return bwd_create(image, bitmap);
 }
 
@@ -582,7 +574,7 @@ void start_transition(int face_new, bool for_startup) {
   case SPRITE_K9:
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "SPRITE_K9");
     sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
-    sprite = jpeg_bwd_create(RESOURCE_ID_K9);
+    sprite = rl2_bwd_create(RESOURCE_ID_K9);
     sprite_cx = 41;
 
     if (wipe_direction) {
@@ -595,7 +587,7 @@ void start_transition(int face_new, bool for_startup) {
   case SPRITE_DALEK:
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "SPRITE_DALEK");
     sprite_mask = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
-    sprite = jpeg_bwd_create(RESOURCE_ID_DALEK);
+    sprite = rl2_bwd_create(RESOURCE_ID_DALEK);
     sprite_cx = 74;
 
     if (wipe_direction) {
