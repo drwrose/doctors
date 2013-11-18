@@ -42,15 +42,6 @@ Window *window;
 
 BitmapWithData mins_background;
 
-// These are filled in only during a transition (while face_transition
-// is true).
-BitmapWithData prev_image;
-BitmapWithData curr_image;
-
-// The mask and image for the moving sprite across the wipe.
-BitmapWithData sprite_mask;
-BitmapWithData sprite;
-
 #ifdef FB_HACK
 // The previous framebuffer data.
 GBitmap *fb_image = NULL;
@@ -65,12 +56,20 @@ Layer *face_layer;   // The "face", in both senses (and also the hour indicator)
 Layer *minute_layer; // The minutes indicator.
 
 int face_value;       // The current face on display (or transitioning into)
+BitmapWithData face_image;  // The current face bitmap
+
 bool face_transition; // True if the face is in transition
 bool wipe_direction;  // True for left-to-right, False for right-to-left.
 bool anim_direction;  // True to reverse tardis rotation.
 int transition_frame; // Frame number of current transition
 int num_transition_frames;  // Total frames for transition
+
 int prev_face_value;  // The face we're transitioning from, or -1.
+BitmapWithData prev_image;  // The previous face bitmap (only during a transition)
+
+// The mask and image for the moving sprite across the wipe.
+BitmapWithData sprite_mask;
+BitmapWithData sprite;
 
 // Triggered at ANIM_TICK_MS intervals for transition animations; also
 // triggered occasionally to check the hour buzzer.
@@ -500,7 +499,6 @@ void stop_transition() {
   face_transition = false;
 
   // Release the transition resources.
-  bwd_destroy(&curr_image);
   bwd_destroy(&prev_image);
   bwd_destroy(&sprite_mask);
   bwd_destroy(&sprite);
@@ -527,19 +525,16 @@ void start_transition(int face_new, bool for_startup) {
   }
 
   // Update the face display.
+  assert(prev_image.bitmap == NULL);
   prev_face_value = face_value;
+  prev_image = face_image;
+
   face_value = face_new;
+  face_image = rle_bwd_create(face_resource_ids[face_value]);
 
   face_transition = true;
   transition_frame = 0;
   num_transition_frames = NUM_TRANSITION_FRAMES_HOUR;
-
-  // Initialize the transition resources.
-  if (prev_face_value >= 0) {
-    prev_image = rle_bwd_create(face_resource_ids[prev_face_value]);
-  }
-
-  curr_image = rle_bwd_create(face_resource_ids[face_value]);
 
   int sprite_sel;
 
@@ -622,18 +617,13 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 
   if (!face_transition) {
     // The simple case: no transition, so just hold the current frame.
-    if (face_value >= 0) {
-      BitmapWithData image;
-      image = rle_bwd_create(face_resource_ids[face_value]);
-    
+    if (face_value >= 0 && face_image.bitmap != NULL) {
       GRect destination = layer_get_frame(me);
       destination.origin.x = 0;
       destination.origin.y = 0;
       
       graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-      graphics_draw_bitmap_in_rect(ctx, image.bitmap, destination);
-      
-      bwd_destroy(&image);
+      graphics_draw_bitmap_in_rect(ctx, face_image.bitmap, destination);
     }
 
   } else {
@@ -679,17 +669,17 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
       if (wipe_x > 0) {
         // Then, draw the new face on top of it, reducing the size to wipe
         // from right to left.
-        if (curr_image.bitmap != NULL) {
+        if (face_image.bitmap != NULL) {
           destination.size.w = wipe_x;
-          graphics_draw_bitmap_in_rect(ctx, curr_image.bitmap, destination);
+          graphics_draw_bitmap_in_rect(ctx, face_image.bitmap, destination);
         }
       }
     } else {
       // First, draw the new face.
       if (wipe_x < SCREEN_WIDTH) {
-        if (curr_image.bitmap != NULL) {
+        if (face_image.bitmap != NULL) {
           graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-          graphics_draw_bitmap_in_rect(ctx, curr_image.bitmap, destination);
+          graphics_draw_bitmap_in_rect(ctx, face_image.bitmap, destination);
         }
       }
       
@@ -851,13 +841,14 @@ void handle_init() {
 
 void handle_deinit() {
   tick_timer_service_unsubscribe();
-
-  bwd_destroy(&mins_background);
   stop_transition();
 
   layer_destroy(minute_layer);
   layer_destroy(face_layer);
   window_destroy(window);
+
+  bwd_destroy(&face_image);
+  bwd_destroy(&mins_background);
 }
 
 int main(void) {
