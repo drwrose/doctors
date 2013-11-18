@@ -1,4 +1,5 @@
 #include <pebble.h>
+#include "assert.h"
 
 // Define this during development to make it easier to see animations
 // in a timely fashion.
@@ -32,22 +33,18 @@
 #define NUM_TRANSITION_FRAMES_HOUR 24
 #define NUM_TRANSITION_FRAMES_STARTUP 10
 
+typedef struct {
+  GBitmap *bitmap;
+  uint8_t *data;
+} BitmapWithData;
+
 Window *window;
 
-GBitmap *mins_background;
-
-// These are filled in only during a transition (while face_transition
-// is true).
-GBitmap *prev_image = NULL;
-GBitmap *curr_image = NULL;
-
-// The mask and image for the moving sprite across the wipe.
-GBitmap *sprite_mask = NULL;
-GBitmap *sprite = NULL;
+BitmapWithData mins_background;
 
 #ifdef FB_HACK
 // The previous framebuffer data.
-GBitmap *fb_image = NULL;
+BitmapWithData fb_image;
 bool first_update = true;
 #endif  // FB_HACK
 
@@ -59,12 +56,20 @@ Layer *face_layer;   // The "face", in both senses (and also the hour indicator)
 Layer *minute_layer; // The minutes indicator.
 
 int face_value;       // The current face on display (or transitioning into)
+BitmapWithData face_image;  // The current face bitmap
+
 bool face_transition; // True if the face is in transition
 bool wipe_direction;  // True for left-to-right, False for right-to-left.
 bool anim_direction;  // True to reverse tardis rotation.
 int transition_frame; // Frame number of current transition
 int num_transition_frames;  // Total frames for transition
+
 int prev_face_value;  // The face we're transitioning from, or -1.
+BitmapWithData prev_image;  // The previous face bitmap (only during a transition)
+
+// The mask and image for the moving sprite across the wipe.
+BitmapWithData sprite_mask;
+BitmapWithData sprite;
 
 // Triggered at ANIM_TICK_MS intervals for transition animations; also
 // triggered occasionally to check the hour buzzer.
@@ -151,18 +156,21 @@ void flip_bitmap_x(GBitmap *image) {
   }
 }
 
-#define RBUFFER_SIZE 1024
+#define RBUFFER_SIZE 256
 typedef struct {
   ResHandle _rh;
   size_t _i;
   size_t _filled_size;
   size_t _bytes_read;
-  uint8_t _buffer[RBUFFER_SIZE];
+  uint8_t *_buffer;
 } RBuffer;
 
 // Begins reading from a raw resource.  Should be matched by a later
 // call to rbuffer_deinit() to free this stuff.
 void rbuffer_init(int resource_id, RBuffer *rb) {
+  rb->_buffer = (uint8_t *)malloc(RBUFFER_SIZE);
+  assert(rb->_buffer != NULL);
+  
   rb->_rh = resource_get_handle(resource_id);
   rb->_i = 0;
   rb->_filled_size = resource_load_byte_range(rb->_rh, 0, rb->_buffer, RBUFFER_SIZE);
@@ -187,47 +195,164 @@ int rbuffer_getc(RBuffer *rb) {
 
 // Frees the resources reserved in rbuffer_init().
 void rbuffer_deinit(RBuffer *rb) {
-  // Actually, we don't need to do anything here.
+  assert(rb->_buffer != NULL);
+  free(rb->_buffer);
+  rb->_buffer = NULL;
 }
 
-// Initialize a bitmap from a rle-encoded resource.  Behaves similarly
-// to gbitmap_create_with_resource.  In a hideous hack, we need to supply
-// ref_resource_id as a similar-sized uncompressed bitmap to serve as
-// a reference for the allocator.
-GBitmap *
-rle_gbitmap_create(int resource_id, int ref_resource_id) {
-  GBitmap *image;
-  image = gbitmap_create_with_resource(ref_resource_id);
+// From bitmapgen.py:
+/*
+# Bitmap struct (NB: All fields are little-endian)
+#         (uint16_t) row_size_bytes
+#         (uint16_t) info_flags
+#                         bit 0 : reserved (must be zero for bitmap files)
+#                    bits 12-15 : file version
+#         (int16_t)  bounds.origin.x
+#         (int16_t)  bounds.origin.y
+#         (int16_t)  bounds.size.w
+#         (int16_t)  bounds.size.h
+#         (uint32_t) image data (word-aligned, 0-padded rows of bits)
+*/
+typedef struct {
+  uint16_t row_size_bytes;
+  uint16_t info_flags;
+  int16_t origin_x;
+  int16_t origin_y;
+  int16_t size_w;
+  int16_t size_h;
+} BitmapDataHeader;
 
-  int height = image->bounds.size.h;
-  int width = image->bounds.size.w;  // multiple of 8, by our convention.
-  int stride = image->row_size_bytes; // multiple of 4, by Pebble.
+BitmapWithData bwd_create(GBitmap *bitmap, void *data) {
+  BitmapWithData bwd;
+  bwd.bitmap = bitmap;
+  bwd.data = data;
+  return bwd;
+}
 
-  memset(image->addr, 0, stride * height);
+void bwd_destroy(BitmapWithData *bwd) {
+  if (bwd->bitmap != NULL) {
+    gbitmap_destroy(bwd->bitmap);
+    bwd->bitmap = NULL;
+  }
+  if (bwd->data != NULL) {
+    free(bwd->data);
+    bwd->data = NULL;
+  }
+}
 
-  // Now get the RLE bytes from the resource.
-  RBuffer rb;
-  rbuffer_init(resource_id, &rb);
-  int r_width = rbuffer_getc(&rb);
-  int r_height = rbuffer_getc(&rb);
-  int r_stride = rbuffer_getc(&rb);
+// Used to unpack the integers of an rl2-encoding back into their
+// original rle sequence.  See make_rle.py.
+typedef struct {
+  RBuffer *rb;
+  int n;
+  int b;
+  int bi;
+} Rl2Unpacker;
 
-  if (r_height != height || r_width != width || r_stride != stride) {
-    // The size must exactly match the reference.
-    return image;
+void rl2unpacker_init(Rl2Unpacker *rl2, RBuffer *rb, int n) {
+  // assumption: n is an integer divisor of 8.
+  assert(n * (8 / n) == 8);
+
+  rl2->rb = rb;
+  rl2->n = n;
+  rl2->b = rbuffer_getc(rb);
+  rl2->bi = 8;
+}
+
+// Gets the next integer from the rl2 encoding.  Returns EOF at end.
+int rl2unpacker_getc(Rl2Unpacker *rl2) {
+  if (rl2->b == EOF) {
+    return EOF;
   }
 
+  // First, count the number of zero chunks until we come to a nonzero chunk.
+  int zero_count = 0;
+  int bmask = (1 << rl2->n) - 1;
+  int bv = (rl2->b & (bmask << (rl2->bi - rl2->n)));
+  while (bv == 0) {
+    ++zero_count;
+    rl2->bi -= rl2->n;
+    if (rl2->bi <= 0) {
+      rl2->b = rbuffer_getc(rl2->rb);
+      rl2->bi = 8;
+      if (rl2->b == EOF) {
+        return EOF;
+      }
+    }
+    bv = (rl2->b & (bmask << (rl2->bi - rl2->n)));
+  }
+
+  // Infer from that the number of chunks, and hence the number of
+  // bits, that make up the value we will extract.
+  int num_chunks = (zero_count + 1);
+  int bit_count = num_chunks * rl2->n;
+
+  // OK, now we need to extract the next bitCount bits into a word.
+  int result = 0;
+  while (bit_count >= rl2->bi) {
+    int mask = (1 << rl2->bi) - 1;
+    int value = (rl2->b & mask);
+    result = (result << rl2->bi) | value;
+    bit_count -= rl2->bi;
+
+    rl2->b = rbuffer_getc(rl2->rb);
+    rl2->bi = 8;
+    if (rl2->b == EOF) {
+      break;
+    }
+  }
+
+  if (bit_count > 0) {
+    // A partial word in the middle of the byte.
+    int bottom_count = rl2->bi - bit_count;
+    assert(bottom_count > 0);
+    int mask = ((1 << bit_count) - 1);
+    int value = ((rl2->b >> bottom_count) & mask);
+    result = (result << bit_count) | value;
+    rl2->bi -= bit_count;
+  }
+
+  return result;
+}
+  
+
+// Initialize a bitmap from an rle-encoded resource.  The returned
+// bitmap must be released with bwd_destroy().  See make_rle.py for
+// the program that generates these rle sequences.
+BitmapWithData
+rle_bwd_create(int resource_id) {
+  RBuffer rb;
+  rbuffer_init(resource_id, &rb);
+  int width = rbuffer_getc(&rb);
+  int height = rbuffer_getc(&rb);
+  int stride = rbuffer_getc(&rb);
+  int n = rbuffer_getc(&rb);
+
+  Rl2Unpacker rl2;
+  rl2unpacker_init(&rl2, &rb, n);
+
+  size_t data_size = height * stride;
+  size_t total_size = sizeof(BitmapDataHeader) + data_size;
+  uint8_t *bitmap = (uint8_t *)malloc(total_size);
+  assert(bitmap != NULL);
+  memset(bitmap, 0, total_size);
+  BitmapDataHeader *bitmap_header = (BitmapDataHeader *)bitmap;
+  uint8_t *bitmap_data = bitmap + sizeof(BitmapDataHeader);
+  bitmap_header->row_size_bytes = stride;
+  bitmap_header->size_w = width;
+  bitmap_header->size_h = height;
+
   // The initial value is 0.
-  uint8_t *dp = image->addr;
+  uint8_t *dp = bitmap_data;
   uint8_t *dp_stop = dp + stride * height;
   int value = 0;
   int b = 0;
-  int count = rbuffer_getc(&rb);
+  int count = rl2unpacker_getc(&rl2);
+  assert(count > 0);
+  // We discard the first, implicit black pixel; it's not part of the image.
+  --count;
   while (count != EOF) {
-    if (dp >= dp_stop) {
-      // failsafe.
-      return image;
-    }
+    assert(dp < dp_stop);
     if (value) {
       // Generate count 1-bits.
       int b1 = b + count;
@@ -243,19 +368,13 @@ rle_gbitmap_create(int resource_id, int ref_resource_id) {
         ++dp;
         b += 8;
         while (b1 / 8 != b / 8) {
-          if (dp >= dp_stop) {
-            // failsafe.
-            return image;
-          }
+          assert(dp < dp_stop);
           *dp = 0xff;
           ++dp;
           b += 8;
         }
         b1 = b1 % 8;
-        if (dp >= dp_stop) {
-          // failsafe.
-          return image;
-        }
+        assert(dp < dp_stop);
         *dp |= ((1 << (b1)) - 1);
         b = b1;
       }
@@ -266,10 +385,12 @@ rle_gbitmap_create(int resource_id, int ref_resource_id) {
       b = b % 8;
     }
     value = 1 - value;
-    count = rbuffer_getc(&rb);
+    count = rl2unpacker_getc(&rl2);
   }
+  rbuffer_deinit(&rb);
 
-  return image;
+  GBitmap *image = gbitmap_create_with_data(bitmap);
+  return bwd_create(image, bitmap);
 }
 
 #ifdef HOUR_BUZZER
@@ -343,26 +464,31 @@ struct GContext {
 };
 
 // Initializes the indicated GBitmap with a copy of the current
-// framebuffer data.  Hacky!  Free it later with gbitmap_destroy().
-GBitmap *
-fb_gbitmap_create(struct GContext *ctx, int ref_resource_id) {
-  GBitmap *image;
-  image = gbitmap_create_with_resource(ref_resource_id);
+// framebuffer data.  Hacky!  Free it later with bwd_destroy().
+BitmapWithData
+fb_bwd_create(struct GContext *ctx) {
+  int width = SCREEN_WIDTH;
+  int height = SCREEN_HEIGHT;
+  int stride = ((width + 31) / 32) * 4;
 
-  int height = image->bounds.size.h;
-  int width = image->bounds.size.w;  // multiple of 8, by our convention.
-  int stride = image->row_size_bytes; // multiple of 4, by Pebble.
-  if (height != SCREEN_HEIGHT || width != SCREEN_WIDTH) {
-    // Not supported.
-    return image;
-  }
+  size_t data_size = height * stride;
+  size_t total_size = sizeof(BitmapDataHeader) + data_size;
+  uint8_t *bitmap = (uint8_t *)malloc(total_size);
+  assert(bitmap != NULL);
+  memset(bitmap, 0, total_size);
+  BitmapDataHeader *bitmap_header = (BitmapDataHeader *)bitmap;
+  uint8_t *bitmap_data = bitmap + sizeof(BitmapDataHeader);
+  bitmap_header->row_size_bytes = stride;
+  bitmap_header->size_w = width;
+  bitmap_header->size_h = height;
 
   // This doesn't appear to be working yet.  Not sure where I should
   // be finding this data.
   uint8_t *framebuffer = ctx->framebuffer;
-  memcpy(image->addr, framebuffer, stride * height);
+  memcpy(bitmap_data, framebuffer, stride * height);
 
-  return image;
+  GBitmap *image = gbitmap_create_with_data(bitmap);
+  return bwd_create(image, bitmap);
 }
 #endif  // FB_HACK
 
@@ -371,31 +497,12 @@ void stop_transition() {
   face_transition = false;
 
   // Release the transition resources.
-  if (curr_image != NULL) {
-    gbitmap_destroy(curr_image);
-    curr_image = NULL;
-  }
-
-  if (prev_image != NULL) {
-    gbitmap_destroy(prev_image);
-    prev_image = NULL;
-  }
-
-  if (sprite_mask != NULL) {
-    gbitmap_destroy(sprite_mask);
-    sprite_mask = NULL;
-  }
-
-  if (sprite != NULL) {
-    gbitmap_destroy(sprite);
-    sprite = NULL;
-  }
+  bwd_destroy(&prev_image);
+  bwd_destroy(&sprite_mask);
+  bwd_destroy(&sprite);
 
 #ifdef FB_HACK
-  if (fb_image != NULL) {
-    gbitmap_destroy(fb_image);
-    fb_image = NULL;
-  }
+  bwd_destroy(&fb_image);
 #endif  // FB_HACK
 
   // Stop the transition timer.
@@ -411,19 +518,16 @@ void start_transition(int face_new, bool for_startup) {
   }
 
   // Update the face display.
+  assert(prev_image.bitmap == NULL);
   prev_face_value = face_value;
+  prev_image = face_image;
+
   face_value = face_new;
+  face_image = rle_bwd_create(face_resource_ids[face_value]);
 
   face_transition = true;
   transition_frame = 0;
   num_transition_frames = NUM_TRANSITION_FRAMES_HOUR;
-
-  // Initialize the transition resources.
-  if (prev_face_value >= 0) {
-    prev_image = gbitmap_create_with_resource(face_resource_ids[prev_face_value]);
-  }
-
-  curr_image = gbitmap_create_with_resource(face_resource_ids[face_value]);
 
   int sprite_sel;
 
@@ -444,33 +548,33 @@ void start_transition(int face_new, bool for_startup) {
   // Initialize the sprite.
   switch (sprite_sel) {
   case SPRITE_TARDIS:
-    sprite_mask = rle_gbitmap_create(RESOURCE_ID_TARDIS_MASK, RESOURCE_ID_TARDIS_01);
+    sprite_mask = rle_bwd_create(RESOURCE_ID_TARDIS_MASK);
     
     sprite_cx = 72;
     break;
 
 #ifndef TARDIS_ONLY
   case SPRITE_K9:
-    sprite_mask = rle_gbitmap_create(RESOURCE_ID_K9_MASK, RESOURCE_ID_K9);
-    sprite = gbitmap_create_with_resource(RESOURCE_ID_K9);
+    sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
+    sprite = rle_bwd_create(RESOURCE_ID_K9);
     sprite_cx = 41;
 
     if (wipe_direction) {
-      flip_bitmap_x(sprite_mask);
-      flip_bitmap_x(sprite);
-      sprite_cx = sprite->bounds.size.w - sprite_cx;
+      flip_bitmap_x(sprite_mask.bitmap);
+      flip_bitmap_x(sprite.bitmap);
+      sprite_cx = sprite.bitmap->bounds.size.w - sprite_cx;
     }
     break;
 
   case SPRITE_DALEK:
-    sprite_mask = rle_gbitmap_create(RESOURCE_ID_DALEK_MASK, RESOURCE_ID_DALEK);
-    sprite = gbitmap_create_with_resource(RESOURCE_ID_DALEK);
+    sprite_mask = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
+    sprite = rle_bwd_create(RESOURCE_ID_DALEK);
     sprite_cx = 74;
 
     if (wipe_direction) {
-      flip_bitmap_x(sprite_mask);
-      flip_bitmap_x(sprite);
-      sprite_cx = sprite->bounds.size.w - sprite_cx;
+      flip_bitmap_x(sprite_mask.bitmap);
+      flip_bitmap_x(sprite.bitmap);
+      sprite_cx = sprite.bitmap->bounds.size.w - sprite_cx;
     }
     break;
 #endif  // TARDIS_ONLY
@@ -483,9 +587,9 @@ void start_transition(int face_new, bool for_startup) {
 
 void root_layer_update_callback(Layer *me, GContext* ctx) {
 #ifdef FB_HACK
-  if (fb_image == NULL && first_update) {
+  if (fb_image.bitmap == NULL && first_update) {
     first_update = false;
-    fb_image = fb_gbitmap_create(ctx, RESOURCE_ID_ONE);
+    fb_image = fb_bwd_create(ctx);
   }
 #endif
 }
@@ -504,18 +608,13 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 
   if (!face_transition) {
     // The simple case: no transition, so just hold the current frame.
-    if (face_value >= 0) {
-      GBitmap *image;
-      image = gbitmap_create_with_resource(face_resource_ids[face_value]);
-    
+    if (face_value >= 0 && face_image.bitmap != NULL) {
       GRect destination = layer_get_frame(me);
       destination.origin.x = 0;
       destination.origin.y = 0;
       
       graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-      graphics_draw_bitmap_in_rect(ctx, image, destination);
-      
-      gbitmap_destroy(image);
+      graphics_draw_bitmap_in_rect(ctx, face_image.bitmap, destination);
     }
 
   } else {
@@ -523,7 +622,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 
     // How far is the total animation distance from offscreen to
     // offscreen?
-    int sprite_width = sprite_mask->bounds.size.w;
+    int sprite_width = sprite_mask.bitmap->bounds.size.w;
     int wipe_width = SCREEN_WIDTH + sprite_width;
 
     // Compute the current pixel position of the center of the wipe.
@@ -540,18 +639,19 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     destination.origin.y = 0;
 
 #ifdef FB_HACK
-    if (fb_image != NULL && prev_image == NULL) {
+    if (fb_image.bitmap != NULL && prev_image.bitmap == NULL) {
       prev_image = fb_image;
-      fb_image = NULL;
+      fb_image.bitmap = NULL;
+      fb_image.data = NULL;
     }
 #endif  // FB_HACK
     
     if (wipe_direction) {
       // First, draw the previous face.
       if (wipe_x < SCREEN_WIDTH) {
-        if (prev_image != NULL) {
+        if (prev_image.bitmap != NULL) {
           graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-          graphics_draw_bitmap_in_rect(ctx, prev_image, destination);
+          graphics_draw_bitmap_in_rect(ctx, prev_image.bitmap, destination);
         } else {
           graphics_context_set_fill_color(ctx, GColorBlack);
           graphics_fill_rect(ctx, destination, 0, GCornerNone);
@@ -561,17 +661,17 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
       if (wipe_x > 0) {
         // Then, draw the new face on top of it, reducing the size to wipe
         // from right to left.
-        if (curr_image != NULL) {
+        if (face_image.bitmap != NULL) {
           destination.size.w = wipe_x;
-          graphics_draw_bitmap_in_rect(ctx, curr_image, destination);
+          graphics_draw_bitmap_in_rect(ctx, face_image.bitmap, destination);
         }
       }
     } else {
       // First, draw the new face.
       if (wipe_x < SCREEN_WIDTH) {
-        if (curr_image != NULL) {
+        if (face_image.bitmap != NULL) {
           graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-          graphics_draw_bitmap_in_rect(ctx, curr_image, destination);
+          graphics_draw_bitmap_in_rect(ctx, face_image.bitmap, destination);
         }
       }
       
@@ -579,8 +679,8 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
         // Then, draw the previous face on top of it, reducing the size to wipe
         // from right to left.
         destination.size.w = wipe_x;
-        if (prev_image != NULL) {
-          graphics_draw_bitmap_in_rect(ctx, prev_image, destination);
+        if (prev_image.bitmap != NULL) {
+          graphics_draw_bitmap_in_rect(ctx, prev_image.bitmap, destination);
         } else {
           graphics_context_set_fill_color(ctx, GColorBlack);
           graphics_fill_rect(ctx, destination, 0, GCornerNone);
@@ -588,46 +688,49 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
       }
     }
 
-    if (sprite_mask != NULL) {
+    if (sprite_mask.bitmap != NULL) {
       // Then, draw the sprite on top of the wipe line.
-      destination.size.w = sprite_mask->bounds.size.w;
-      destination.size.h = sprite_mask->bounds.size.h;
+      destination.size.w = sprite_mask.bitmap->bounds.size.w;
+      destination.size.h = sprite_mask.bitmap->bounds.size.h;
       destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
       destination.origin.x = wipe_x - sprite_cx;
       graphics_context_set_compositing_mode(ctx, GCompOpClear);
-      graphics_draw_bitmap_in_rect(ctx, sprite_mask, destination);
-      
-      if (sprite != NULL) {
+      graphics_draw_bitmap_in_rect(ctx, sprite_mask.bitmap, destination);
+
+      if (sprite.bitmap != NULL) {
         // Fixed sprite case.
         graphics_context_set_compositing_mode(ctx, GCompOpOr);
-        graphics_draw_bitmap_in_rect(ctx, sprite, destination);
+        graphics_draw_bitmap_in_rect(ctx, sprite.bitmap, destination);
       } else {
         // Tardis case.  Since it's animated, but we don't have enough
-        // RAM to hold all the frames at once, we have to load one frame
-        // at a time as we need it.
-        GBitmap *tardis;
+        // RAM to hold all the frames at once, we have to load one
+        // frame at a time as we need it.  We don't use RLE encoding
+        // on the Tardis frames in an attempt to cut down on needless
+        // CPU work while playing this animation.
         int af = ti % NUM_TARDIS_FRAMES;
         if (anim_direction) {
           af = (NUM_TARDIS_FRAMES - 1) - af;
         }
-        tardis = gbitmap_create_with_resource(tardis_frames[af].tardis);
-        if (tardis_frames[af].flip_x) {
-          flip_bitmap_x(tardis);
+        GBitmap *tardis = gbitmap_create_with_resource(tardis_frames[af].tardis);
+        if (tardis != NULL) {
+          if (tardis_frames[af].flip_x) {
+            flip_bitmap_x(tardis);
+          }
+          
+          graphics_context_set_compositing_mode(ctx, GCompOpOr);
+          graphics_draw_bitmap_in_rect(ctx, tardis, destination);
+          
+          gbitmap_destroy(tardis);
         }
-        
-        graphics_context_set_compositing_mode(ctx, GCompOpOr);
-        graphics_draw_bitmap_in_rect(ctx, tardis, destination);
-        
-        gbitmap_destroy(tardis);
       }
       
       // Finally, re-draw the minutes background card on top of the sprite.
-      destination.size.w = mins_background->bounds.size.w;
-      destination.size.h = mins_background->bounds.size.h;
+      destination.size.w = 50;
+      destination.size.h = 31;
       destination.origin.x = SCREEN_WIDTH - destination.size.w;
       destination.origin.y = SCREEN_HEIGHT - destination.size.h;
       graphics_context_set_compositing_mode(ctx, GCompOpOr);
-      graphics_draw_bitmap_in_rect(ctx, mins_background, destination);
+      graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, destination);
     }
   }
 }
@@ -706,7 +809,8 @@ void handle_init() {
   // Doesn't appear to work--it's always animated anyway.
   window_stack_push(window, false);
 
-  mins_background = gbitmap_create_with_resource(RESOURCE_ID_MINS_BACKGROUND);
+  mins_background = rle_bwd_create(RESOURCE_ID_MINS_BACKGROUND);
+  assert(mins_background.bitmap != NULL);
 
   face_layer = layer_create(layer_get_bounds(root_layer));
   layer_set_update_proc(face_layer, &face_layer_update_callback);
@@ -730,14 +834,17 @@ void handle_deinit() {
 
   stop_transition();
 
-  gbitmap_destroy(mins_background);
   layer_destroy(minute_layer);
   layer_destroy(face_layer);
   window_destroy(window);
+
+  bwd_destroy(&face_image);
+  bwd_destroy(&mins_background);
 }
 
 int main(void) {
   handle_init();
+
   app_event_loop();
   handle_deinit();
 }

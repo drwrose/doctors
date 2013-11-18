@@ -18,64 +18,64 @@
         "file": "app_icon.png"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "ONE",
-        "file": "one.png"
+        "file": "one.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "TWO",
-        "file": "two.png"
+        "file": "two.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "THREE",
-        "file": "three.png"
+        "file": "three.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "FOUR",
-        "file": "four.png"
+        "file": "four.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "FIVE",
-        "file": "five.png"
+        "file": "five.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "SIX",
-        "file": "six.png"
+        "file": "six.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "SEVEN",
-        "file": "seven.png"
+        "file": "seven.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "EIGHT",
-        "file": "eight.png"
+        "file": "eight.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "NINE",
-        "file": "nine.png"
+        "file": "nine.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "TEN",
-        "file": "ten.png"
+        "file": "ten.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "ELEVEN",
-        "file": "eleven.png"
+        "file": "eleven.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "TWELVE",
-        "file": "twelve.png"
+        "file": "twelve.rle"
       },
       {
         "type": "png",
@@ -103,9 +103,9 @@
         "file": "tardis_masks.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "K9",
-        "file": "k9.png"
+        "file": "k9.rle"
       },
       {
         "type": "raw",
@@ -113,9 +113,9 @@
         "file": "k9_mask.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "DALEK",
-        "file": "dalek.png"
+        "file": "dalek.rle"
       },
       {
         "type": "raw",
@@ -123,9 +123,9 @@
         "file": "dalek_mask.rle"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "MINS_BACKGROUND",
-        "file": "mins_background.png"
+        "file": "mins_background.rle"
       }
     ]
   }
