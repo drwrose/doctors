@@ -43,8 +43,11 @@ def generate_rle(source):
 
     current = 0
     count = 0
-    next = source.next()
-    next = 0  # hack: we must begin with a black pixel.
+    # We start with an implicit black pixel, which isn't actually part
+    # of the image.  The decoder must discard this pixel.  This
+    # implicit black pixel ensures that there are no 0 counts anywhere
+    # in the resulting data.
+    next = 0
     while True:
         while current == next:
             count += 1
@@ -53,76 +56,73 @@ def generate_rle(source):
         current = next
         count = 0
 
-def trim_rle(source):
-    """ This generator ensures the rle string does not exceed 0xff. """
-
-    for ch in source:
-        while ch > 0xff:
-            # Can't exceed this number.
-            yield 0xff
-            yield 0
-            ch -= ch
-        yield ch
-            
-def generate_rl2(source):
-    """ This generator yields a sequence of run lengths of run
-    lengths.  The expectation is that the input will be a series of
-    positive numbers, with several sequences of 1.  The sequences
-    of 1 are replaced by negative run-counts. """
-
-    count = 0
-    next = source.next()
-    while True:
-        if next == 1:
-            while next == 1:
-                count += 1
-                next = source.next()
-            if count == 1:
-                yield 1
-            else:
-                yield -count
-            count = 0
-        else:
-            yield next
-            next = source.next()
-
 def count_bits(num):
     count = 0
     while num >= (1 << count):
         count += 1
     return count
 
-def chop1_rle(source):
-    """ Separates the rle sequence into a sequence of one-bit sequences. """
+def chop_rle(source, n):
+    """ Separates the rle sequence into a sequence of n-bit chunks.
+    If a value is too large to fit into a single chunk, a series of
+    0-valued chunks will introduce it. """
+    
     result = ''
     for v in source:
-        numBits = count_bits(v)
-        for z in range(numBits - 1):
+        # Count the minimum number of chunks we need to represent v.
+        numChunks = (count_bits(v) + n - 1) / n
+
+        # We write out a number of zeroes to indicate this.
+        zeroCount = numChunks - 1
+        for z in range(zeroCount):
             yield 0
-        for x in range(numBits):
-            b = (v >> (numBits - x - 1)) & 0x1
+            
+        mask = (1 << n) - 1
+        for x in range(numChunks):
+            b = (v >> ((numChunks - x - 1) * n)) & mask
             assert b != 0 or x != 0
             yield b
 
-def pack1_rle(source):
-    """ Packs a sequence of one-bit sequences into a byte string. """
+def pack_rle(source, n):
+    """ Packs a sequence of n-bit chunks into a byte string. """
     seq = list(source)
-    seq += [0, 0, 0, 0, 0, 0, 0]
     result = ''
-    for i in range(0, len(seq) - 7, 8):
-        v = (seq[i + 0] << 7) | (seq[i + 1] << 6) | (seq[i + 2] << 5) | (seq[i +3] << 4) | (seq[i + 4] << 3) | (seq[i + 5] << 2) | (seq[i + 6] << 1) | (seq[i + 7])
-        result += (chr(v))
+    if n == 1:
+        seq += [0, 0, 0, 0, 0, 0, 0]
+        for i in range(0, len(seq) - 7, 8):
+            v = (seq[i + 0] << 7) | (seq[i + 1] << 6) | (seq[i + 2] << 5) | (seq[i +3] << 4) | (seq[i + 4] << 3) | (seq[i + 5] << 2) | (seq[i + 6] << 1) | (seq[i + 7])
+            result += (chr(v))
+    elif n == 2:
+        seq += [0, 0, 0]
+        for i in range(0, len(seq) - 3, 4):
+            v = (seq[i + 0] << 6) | (seq[i + 1] << 4) | (seq[i + 2] << 2) | (seq[i + 3])
+            result += (chr(v))
+    elif n == 4:
+        seq += [0]
+        for i in range(0, len(seq) - 1, 2):
+            v = (seq[i + 0] << 4) | (seq[i + 1])
+            result += (chr(v))
+    elif n == 8:
+        for v in seq:
+            result += chr(v)
+    else:
+        raise ValueError
+
     return result
 
 class Rl2Unpacker:
-    """ This class reverses chop1_rle() and pack1_rle()--it reads a
+    """ This class reverses chop_rle() and pack_rle()--it reads a
     string and returns the original rle sequence of positive integers.
     It's written using a class and a call interface instead of as a
     generator, so it can serve as a prototype for the C code to do the
     same thing. """
 
-    def __init__(self, str):
+    def __init__(self, str, n):
+        # assumption: n is an integer divisor of 8.
+        assert n * (8 / n) == 8
+          
         self.str = str
+        self.n = n
         self.si = 0
         self.bi = 8
 
@@ -141,13 +141,14 @@ class Rl2Unpacker:
         if self.si >= len(self.str):
             return 0
         
-        # First, count the number of 0 bits until we come to a 1 bit.
-        bitCount = 1
+        # First, count the number of zero chunks until we come to a nonzero chunk.
+        zeroCount = 0
         b = ord(self.str[self.si])
-        bv = b & (1 << (self.bi - 1))
+        bmask = (1 << self.n) - 1
+        bv = b & (bmask << (self.bi - self.n))
         while bv == 0:
-            bitCount += 1
-            self.bi -= 1
+            zeroCount += 1
+            self.bi -= self.n
             if self.bi <= 0:
                 self.si += 1
                 self.bi = 8
@@ -155,7 +156,12 @@ class Rl2Unpacker:
                     return 0
                 
                 b = ord(self.str[self.si])
-            bv = b & (1 << (self.bi - 1))
+            bv = b & (bmask << (self.bi - self.n))
+
+        # Infer from that the number of chunks, and hence the number
+        # of bits, that make up the value we will extract.
+        numChunks = (zeroCount + 1)
+        bitCount = numChunks * self.n
 
         # OK, now we need to extract the next bitCount bits into a word.
         result = 0
@@ -174,7 +180,7 @@ class Rl2Unpacker:
             b = ord(self.str[self.si])
 
         if bitCount > 0:
-            # A partial word in the middle.
+            # A partial word in the middle of the byte.
             bottomCount = self.bi - bitCount
             assert bottomCount > 0
             mask = ((1 << bitCount) - 1)
@@ -185,82 +191,62 @@ class Rl2Unpacker:
         return result
             
             
-
 def make_rle(filename):
     image = PIL.Image.open(filename)
     image = image.convert('1')
     w, h = image.size
-    assert w <= 0xff and h <= 0xff
-    assert w % 8 == 0  # must be a multiple of 8 pixels wide.
-
-    # The number of bytes in a row.  Must be a multiple of 4, per
-    # Pebble conventions.
-    stride = (w + 7) / 8
-    stride = 4 * ((stride + 3) / 4)
-    assert stride <= 0xff
-
-    result = list(trim_rle(generate_rle(generate_pixels(image, stride))))
-    assert max(result) <= 0xff
-
-    basename = os.path.splitext(filename)[0]
-    rleFilename = basename + '.rle'
-    rle = open(rleFilename, 'wb')
-    rle.write('%c%c%c' % (w, h, stride))
-    rle.write(''.join(map(chr, result)))
-    rle.close()
+    stride = ((w + 31) / 32) * 4
+    fullSize = h * stride
     
-    print '%s: %s vs. %s' % (rleFilename, 3 + len(result), w * h / 8)
-
-def make_rl2(filename):
-    image = PIL.Image.open(filename)
-    image = image.convert('1')
-    w, h = image.size
+    if w % 8 != 0:
+        # Must be a multiple of 8 pixels wide.  If not, expand it.
+        w = ((w + 7) / 8) * 8
+        im2 = PIL.Image.new('1', (w, h), 0)
+        im2.paste(image, (0, 0))
+        image = im2
+                            
     assert w <= 0xff and h <= 0xff
-    assert w % 8 == 0  # must be a multiple of 8 pixels wide.
 
     # The number of bytes in a row.  Must be a multiple of 4, per
     # Pebble conventions.
-    stride = (w + 7) / 8
-    stride = 4 * ((stride + 3) / 4)
+    stride = ((w + 31) / 32) * 4
     assert stride <= 0xff
 
-    result1 = list(trim_rle(generate_rle(generate_pixels(image, stride))))
-    assert max(result1) <= 0xff
-
-    result = pack1_rle(chop1_rle(generate_rle(generate_pixels(image, stride))))
+    # Find the best n for this image.
+    result = None
+    n = None
+    for n0 in [1, 8]:
+        result0 = pack_rle(chop_rle(generate_rle(generate_pixels(image, stride)), n0), n0)
+        if result is None or len(result0) < len(result):
+            result = result0
+            n = n0
 
     # Verify the result matches.
-    unpacker = Rl2Unpacker(result)
+    unpacker = Rl2Unpacker(result, n)
     verify = unpacker.getList()
     result0 = list(generate_rle(generate_pixels(image, stride)))
     assert verify == result0
 
     basename = os.path.splitext(filename)[0]
-    rl2Filename = basename + '.rl2'
-    rl2 = open(rl2Filename, 'wb')
-    rl2.write('%c%c%c' % (w, h, stride))
-    rl2.write(result)
-    rl2.close()
+    rleFilename = basename + '.rle'
+    rle = open(rleFilename, 'wb')
+    rle.write('%c%c%c%c' % (w, h, stride, n))
+    rle.write(result)
+    rle.close()
     
-    print '%s: %s vs. %s vs. %s' % (rl2Filename, 3 + len(result), 3 + len(result1), w * h / 8)
+    print '%s: %s vs. %s' % (rleFilename, 4 + len(result), fullSize)
     
 
 # Main.
-useRle2 = False
 try:
-    opts, args = getopt.getopt(sys.argv[1:], '2h')
+    opts, args = getopt.getopt(sys.argv[1:], 'h')
 except getopt.error, msg:
     usage(1, msg)
 
 for opt, arg in opts:
-    if opt == '-2':
-        useRle2 = True
-    elif opt == '-h':
+    if opt == '-h':
         usage(0)
 
 print args
 for filename in args:
-    if useRle2:
-        make_rl2(filename)
-    else:
-        make_rle(filename)
+    make_rle(filename)
