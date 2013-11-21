@@ -1,5 +1,6 @@
 #include <pebble.h>
 #include "assert.h"
+#include "config_options.h"
 
 // Define this during development to make it easier to see animations
 // in a timely fashion.
@@ -29,26 +30,6 @@
 // Number of frames of animation
 #define NUM_TRANSITION_FRAMES_HOUR 24
 #define NUM_TRANSITION_FRAMES_STARTUP 10
-
-// These keys are used to communicate with Javascript.
-typedef enum {
-  CK_hurt = 0,
-  CK_hour_buzzer = 1,
-  CK_colon = 2,
-} ConfigKey;
-
-// This key is used to record the persistent storage.
-#define PERSIST_KEY 0x5150
-
-typedef struct {
-  int version;
-  bool hour_buzzer;
-  bool hurt;
-  bool colon;
-} ConfigOptions;
-
-#define CURRENT_CONFIG_VERSION 1
-ConfigOptions config;
 
 typedef struct {
   GBitmap *bitmap;
@@ -457,7 +438,7 @@ void handle_timer(void *data) {
 
 // Triggered at 500 ms intervals to blink the colon.
 void handle_blink(void *data) {
-  if (config.colon) {
+  if (config.second_hand) {
     hide_colon = true;
     layer_mark_dirty(second_layer);
   }
@@ -789,7 +770,7 @@ void minute_layer_update_callback(Layer *me, GContext* ctx) {
 }
   
 void second_layer_update_callback(Layer *me, GContext* ctx) {
-  if (!config.colon || !hide_colon) {
+  if (!config.second_hand || !hide_colon) {
     GFont font;
     GRect box;
   
@@ -842,7 +823,7 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
     // Update the second display.
     second_value = second_new;
     hide_colon = false;
-    if (config.colon) {
+    if (config.second_hand) {
       // To blink the colon once per second, draw it now, then make it
       // go away after a half-second.
       layer_mark_dirty(second_layer);
@@ -865,13 +846,13 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
 
 // Updates any runtime settings as needed when the config changes.
 void apply_config() {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "apply_config, colon=%d", config.colon);
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "apply_config, second_hand=%d", config.second_hand);
   tick_timer_service_unsubscribe();
 
 #ifdef FAST_TIME
   tick_timer_service_subscribe(SECOND_UNIT, handle_tick);
 #else
-  if (config.colon) {
+  if (config.second_hand) {
     tick_timer_service_subscribe(SECOND_UNIT, handle_tick);
   } else {
     tick_timer_service_subscribe(MINUTE_UNIT, handle_tick);
@@ -879,61 +860,10 @@ void apply_config() {
 #endif
 }
 
-void save_config() {
-  config.version = CURRENT_CONFIG_VERSION;
-  persist_write_data(PERSIST_KEY, &config, sizeof(config));
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Saved config: hurt=%d, hour_buzzer=%d, colon=%d", config.hurt, config.hour_buzzer, config.colon);
-}
-
-void load_config() {
-  // Default settings.
-  config.hour_buzzer = true;
-  config.hurt = true;
-  config.colon = false;
-
-  if (persist_exists(PERSIST_KEY)) {
-    ConfigOptions local_config;
-    if (persist_read_data(PERSIST_KEY, &local_config, sizeof(local_config)) == sizeof(local_config)) {
-      if (local_config.version == CURRENT_CONFIG_VERSION) {
-        config = local_config;
-        app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Loaded config: hurt=%d, hour_buzzer=%d, colon=%d", config.hurt, config.hour_buzzer, config.colon);
-      } else {
-        app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Discarded config with incorrect version %d", local_config.version);
-      }
-    } else {
-      app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Wrong previous config size.");
-    }
-  } else {
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "No previous config.");
-  }
-}
-
-void in_received_handler(DictionaryIterator *received, void *context) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "in_received_handler");
-  Tuple *hurt = dict_find(received, CK_hurt);
-  if (hurt != NULL) {
-    config.hurt = hurt->value->int32;
-  }
-
-  Tuple *hour_buzzer = dict_find(received, CK_hour_buzzer);
-  if (hour_buzzer != NULL) {
-    config.hour_buzzer = hour_buzzer->value->int32;
-  }
-
-  Tuple *colon = dict_find(received, CK_colon);
-  if (colon != NULL) {
-    config.colon = colon->value->int32;
-  }
-
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "New config: hurt=%d, hour_buzzer=%d, colon=%d", config.hurt, config.hour_buzzer, config.colon);
-  save_config();
-  apply_config();
-}
-
 void handle_init() {
   load_config();
 
-  app_message_register_inbox_received(in_received_handler);
+  app_message_register_inbox_received(receive_config_handler);
   app_message_open(64, 64);
 
   time_t now = time(NULL);

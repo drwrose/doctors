@@ -10,9 +10,11 @@
     "watchface": true
   },
   "appKeys": {
-    "hurt": 0,
-    "hour_buzzer": 1,
-    "colon": 2
+    "keep_battery_gauge": 0,
+    "keep_bluetooth_indicator": 1,
+    "second_hand": 2,
+    "hour_buzzer": 3,
+    "hurt": 4
   },
   "resources": {
     "media": [

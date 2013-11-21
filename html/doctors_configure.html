@@ -26,79 +26,112 @@
                 <input id="save" data-theme="a" value="Save" type="submit">
             </div>
         </div>
-    	<div data-role="fieldcontain">
+
+		<div data-role="fieldcontain">
+            <label for="keep_battery_gauge">
+                Keep battery visible
+            </label>
+            <select name="keep_battery_gauge" id="keep_battery_gauge" data-theme="" data-role="slider">
+<script>
+  if ($.url().param("keep_battery_gauge") == 1) {
+     document.write('<option value="0">Off</option><option value="1" selected>On</option>');
+  } else {
+     document.write('<option value="0" selected>Off</option><option value="1">On</option>');
+  }
+</script>
+            </select>
+        </div>
+
+		<div data-role="fieldcontain">
+            <label for="keep_bluetooth_indicator">
+                Keep bluetooth visible
+            </label>
+            <select name="keep_bluetooth_indicator" id="keep_bluetooth_indicator" data-theme="" data-role="slider">
+<script>
+  if ($.url().param("keep_bluetooth_indicator") == 1) {
+     document.write('<option value="0">Off</option><option value="1" selected>On</option>');
+  } else {
+     document.write('<option value="0" selected>Off</option><option value="1">On</option>');
+  }
+</script>
+            </select>
+        </div>
+
+		<div data-role="fieldcontain">
+            <label for="second_hand">
+                Blinking colon
+            </label>
+            <select name="second_hand" id="second_hand" data-theme="" data-role="slider">
+<script>
+  if ($.url().param("second_hand") == 1) {
+     document.write('<option value="0">Off</option><option value="1" selected>On</option>');
+  } else {
+     document.write('<option value="0" selected>Off</option><option value="1">On</option>');
+  }
+</script>
+            </select>
+        </div>
+
+		<div data-role="fieldcontain">
             <label for="hour_buzzer">
                Vibrate at each hour
             </label>
             <select name="hour_buzzer" id="hour_buzzer" data-theme="" data-role="slider">
-    <script>
-		if ($.url().param("hour_buzzer") != 0) {
-		   document.write('<option value="0">Off</option><option value="1" selected>On</option>');
-        } else {
-		   document.write('<option value="0" selected>Off</option><option value="1">On</option>');
-		}
-	</script>
-		 </select>
+<script>
+  if ($.url().param("hour_buzzer") == 1) {
+     document.write('<option value="0">Off</option><option value="1" selected>On</option>');
+  } else {
+     document.write('<option value="0" selected>Off</option><option value="1">On</option>');
+  }
+</script>
+         </select>
         </div>
         
-    	<div data-role="fieldcontain">
+        <div data-role="fieldcontain">
             <label for="hurt">
                 Include "War Doctor" at 8:30
             </label>
             <select name="hurt" id="hurt" data-theme="" data-role="slider">
-    <script>
-		if ($.url().param("hurt") != 0) {
-		   document.write('<option value="0">Off</option><option value="1" selected>On</option>');
-        } else {
-		   document.write('<option value="0" selected>Off</option><option value="1">On</option>');
-		}
-	</script>
-			</select>
-        </div>
-        
-        <div data-role="fieldcontain">
-            <label for="colon">
-                Blinking colon
-            </label>
-            <select name="colon" id="colon" data-theme="" data-role="slider">
-    <script>
-		if ($.url().param("colon") != 0) {
-		   document.write('<option value="0">Off</option><option value="1" selected>On</option>');
-        } else {
-		   document.write('<option value="0" selected>Off</option><option value="1">On</option>');
-		}
-	</script>
+<script>
+  if ($.url().param("hurt") == 1) {
+     document.write('<option value="0">Off</option><option value="1" selected>On</option>');
+  } else {
+     document.write('<option value="0" selected>Off</option><option value="1">On</option>');
+  }
+</script>
             </select>
         </div>
-	</div>
+        
+    </div>
 </div>
 
-    <script>
-      function saveOptions() {
-        var options = {
-          'hour_buzzer': parseInt($("#hour_buzzer").val(), 10),
-          'hurt': parseInt($("#hurt").val(), 10),
-          'colon': parseInt($("#colon").val(), 10),
-        }
-        return options;
-      }
+<script>
+function saveOptions() {
+  var options = {
+    'keep_battery_gauge': parseInt($("#keep_battery_gauge").val(), 10),
+    'keep_bluetooth_indicator': parseInt($("#keep_bluetooth_indicator").val(), 10),
+    'second_hand': parseInt($("#second_hand").val(), 10),
+    'hour_buzzer': parseInt($("#hour_buzzer").val(), 10),
+    'hurt': parseInt($("#hurt").val(), 10),
+  }
+  return options;
+}
 
-      $().ready(function() {
-        $("#cancel").click(function() {
-          console.log("Cancel");
-          document.location = "pebblejs://close#";
-        });
+$().ready(function() {
+  $("#cancel").click(function() {
+    console.log("Cancel");
+    document.location = "pebblejs://close#";
+  });
 
-        $("#save").click(function() {
-          console.log("Submit");
-          
-          var location = "pebblejs://close#" + encodeURIComponent(JSON.stringify(saveOptions()));
-          console.log("Close: " + location);
-          console.log(location);
-          document.location = location;
-        });
-
-      });
-    </script>
+  $("#save").click(function() {
+    console.log("Submit");
+    
+    var location = "pebblejs://close#" + encodeURIComponent(JSON.stringify(saveOptions()));
+    console.log("Close: " + location);
+    console.log(location);
+    document.location = location;
+  });
+});
+</script>
 </body>
 </html>
