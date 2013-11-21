@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>12 Doctors</title>
+        <meta charset='utf-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1'>
+        <link rel='stylesheet' href='http://code.jquery.com/mobile/1.3.2/jquery.mobile-1.3.2.min.css' />
+        <script src='http://code.jquery.com/jquery-1.9.1.min.js'></script>
+        <script src='http://code.jquery.com/mobile/1.3.2/jquery.mobile-1.3.2.min.js'></script>
+        <script src='purl.js'></script>
+        <style>
+          .ui-header .ui-title { margin-left: 1em; margin-right: 1em; text-overflow: clip; }
+        </style>
+    </head>
+    <body>
+    <div data-role="page" id="page1">
+    <div data-theme="a" data-role="header" data-position="fixed">
+        <h3>12 Doctors Configuration</h3>
+    </div>
+    <div data-role="content">
+        <div class="ui-grid-a">
+            <div class="ui-block-a">
+                <input id="cancel" value="Cancel" type="submit">
+            </div>
+            <div class="ui-block-b">
+                <input id="save" data-theme="a" value="Save" type="submit">
+            </div>
+        </div>
+    	<div data-role="fieldcontain">
+            <label for="hour_buzzer">
+               Vibrate at each hour
+            </label>
+            <select name="hour_buzzer" id="hour_buzzer" data-theme="" data-role="slider">
+    <script>
+		if ($.url().param("hour_buzzer") != 0) {
+		   document.write('<option value="0">Off</option><option value="1" selected>On</option>');
+        } else {
+		   document.write('<option value="0" selected>Off</option><option value="1">On</option>');
+		}
+	</script>
+		 </select>
+        </div>
+        
+    	<div data-role="fieldcontain">
+            <label for="hurt">
+                Include "War Doctor" at 8:30
+            </label>
+            <select name="hurt" id="hurt" data-theme="" data-role="slider">
+    <script>
+		if ($.url().param("hurt") != 0) {
+		   document.write('<option value="0">Off</option><option value="1" selected>On</option>');
+        } else {
+		   document.write('<option value="0" selected>Off</option><option value="1">On</option>');
+		}
+	</script>
+			</select>
+        </div>
+        
+        <div data-role="fieldcontain">
+            <label for="colon">
+                Blinking colon
+            </label>
+            <select name="colon" id="colon" data-theme="" data-role="slider">
+    <script>
+		if ($.url().param("colon") != 0) {
+		   document.write('<option value="0">Off</option><option value="1" selected>On</option>');
+        } else {
+		   document.write('<option value="0" selected>Off</option><option value="1">On</option>');
+		}
+	</script>
+            </select>
+        </div>
+	</div>
+</div>
+
+    <script>
+      function saveOptions() {
+        var options = {
+          'hour_buzzer': parseInt($("#hour_buzzer").val(), 10),
+          'hurt': parseInt($("#hurt").val(), 10),
+          'colon': parseInt($("#colon").val(), 10),
+        }
+        return options;
+      }
+
+      $().ready(function() {
+        $("#cancel").click(function() {
+          console.log("Cancel");
+          document.location = "pebblejs://close#";
+        });
+
+        $("#save").click(function() {
+          console.log("Submit");
+          
+          var location = "pebblejs://close#" + encodeURIComponent(JSON.stringify(saveOptions()));
+          console.log("Close: " + location);
+          console.log(location);
+          document.location = location;
+        });
+
+      });
+    </script>
+</body>
+</html>

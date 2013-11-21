@@ -9,9 +9,6 @@
 // the next SDK update.
 //#define FB_HACK 1
 
-// Define this to enable the buzzer at the top of the hour.
-//#define HOUR_BUZZER 1
-
 // Define this to limit the set of sprites to just the Tardis (to
 // reduce resource size).  You also need to remove the other sprites
 // from the resource file, of course.
@@ -32,6 +29,26 @@
 // Number of frames of animation
 #define NUM_TRANSITION_FRAMES_HOUR 24
 #define NUM_TRANSITION_FRAMES_STARTUP 10
+
+// These keys are used to communicate with Javascript.
+typedef enum {
+  CK_hurt = 0,
+  CK_hour_buzzer = 1,
+  CK_colon = 2,
+} ConfigKey;
+
+// This key is used to record the persistent storage.
+#define PERSIST_KEY 0x5150
+
+typedef struct {
+  int version;
+  bool hour_buzzer;
+  bool hurt;
+  bool colon;
+} ConfigOptions;
+
+#define CURRENT_CONFIG_VERSION 1
+ConfigOptions config;
 
 typedef struct {
   GBitmap *bitmap;
@@ -54,6 +71,7 @@ int sprite_cx = 0;
 
 Layer *face_layer;   // The "face", in both senses (and also the hour indicator).
 Layer *minute_layer; // The minutes indicator.
+Layer *second_layer; // The seconds indicator (a blinking colon).
 
 int face_value;       // The current face on display (or transitioning into)
 BitmapWithData face_image;  // The current face bitmap
@@ -75,10 +93,13 @@ BitmapWithData sprite;
 // triggered occasionally to check the hour buzzer.
 AppTimer *anim_timer = NULL;
 
-int minute_value;    // The current minute value displayed
-int last_buzz_hour;  // The hour at which we last sounded the buzzer.
+// Triggered at 500 ms intervals to blink the colon.
+AppTimer *blink_timer = NULL;
 
-bool include_hurt = true;
+int minute_value;    // The current minute value displayed
+int second_value;    // The current second value displayed.  Actually we only blink the colon, rather than actually display a value, but whatever.
+bool hide_colon;     // Set true every half-second to blink the colon off.
+int last_buzz_hour;  // The hour at which we last sounded the buzzer.
 
 int face_resource_ids[13] = {
   RESOURCE_ID_TWELVE,
@@ -396,7 +417,6 @@ rle_bwd_create(int resource_id) {
   return bwd_create(image, bitmap);
 }
 
-#ifdef HOUR_BUZZER
 int check_buzzer() {
   // Rings the buzzer if it's almost time for the hour to change.
   // Returns the amount of time in ms to wait for the next buzzer.
@@ -407,8 +427,10 @@ int check_buzzer() {
   if (this_hour != last_buzz_hour) {
     if (last_buzz_hour != -1) {
       // Time to ring the buzzer.
-      vibes_enqueue_custom_pattern(tap);
-      //vibes_double_pulse();
+      if (config.hour_buzzer) {
+        vibes_enqueue_custom_pattern(tap);
+        //vibes_double_pulse();
+      }
     }
 
     // Now make sure we don't ring the buzzer again for this hour.
@@ -420,7 +442,6 @@ int check_buzzer() {
 
   return (next_buzzer_time - now) * 1000;
 }
-#endif  // HOUR_BUZZER
 
 void set_next_timer();
 
@@ -434,15 +455,26 @@ void handle_timer(void *data) {
   set_next_timer();
 }
 
+// Triggered at 500 ms intervals to blink the colon.
+void handle_blink(void *data) {
+  if (config.colon) {
+    hide_colon = true;
+    layer_mark_dirty(second_layer);
+  }
+
+  if (blink_timer != NULL) {
+    app_timer_cancel(blink_timer);
+    blink_timer = NULL;
+  }
+}
+
 // Ensures the animation/buzzer timer is running.
 void set_next_timer() {
   if (anim_timer != NULL) {
     app_timer_cancel(anim_timer);
     anim_timer = NULL;
   }
-#ifdef HOUR_BUZZER
   int next_buzzer_ms = check_buzzer();
-#endif  // HOUR_BUZZER
 
   if (face_transition) {
     // If the animation is underway, we need to fire the timer at
@@ -450,11 +482,9 @@ void set_next_timer() {
     anim_timer = app_timer_register(ANIM_TICK_MS, &handle_timer, 0);
 
   } else {
-#ifdef HOUR_BUZZER
     // Otherwise, we only need a timer to tell us to buzz at (almost)
     // the top of the hour.
     anim_timer = app_timer_register(next_buzzer_ms, &handle_timer, 0);
-#endif  // HOUR_BUZZER
   }
 }
 
@@ -739,6 +769,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 }
   
 void minute_layer_update_callback(Layer *me, GContext* ctx) {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "minute_layer_update_callback");
   GFont font;
   GRect box;
   static const int buffer_size = 128;
@@ -752,10 +783,29 @@ void minute_layer_update_callback(Layer *me, GContext* ctx) {
 
   graphics_context_set_text_color(ctx, GColorBlack);
 
-  snprintf(buffer, buffer_size, ":%02d", minute_value);
+  snprintf(buffer, buffer_size, "%02d", minute_value);
   graphics_draw_text(ctx, buffer, font, box,
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                      NULL);
+}
+  
+void second_layer_update_callback(Layer *me, GContext* ctx) {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "second_layer_update_callback, config.colon = %d, second_value = %d, hide_colon = %d", config.colon, second_value, hide_colon);
+  if (!config.colon || !hide_colon) {
+    GFont font;
+    GRect box;
+  
+    font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
+    
+    box = layer_get_frame(me);
+    box.origin.x = 0;
+    box.origin.y = 0;
+    
+    graphics_context_set_text_color(ctx, GColorBlack);
+    graphics_draw_text(ctx, ":", font, box,
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
+                       NULL);
+  }
 }
 
 
@@ -766,17 +816,17 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
     return;
   }
 
-  int face_new;
-  int minute_new;
+  int face_new, minute_new, second_new;
 
   face_new = tick_time->tm_hour % 12;
   minute_new = tick_time->tm_min;
-  if (include_hurt && face_new == 8 && minute_new >= 30) {
+  second_new = tick_time->tm_sec;
+  if (config.hurt && face_new == 8 && minute_new >= 30) {
     // Face 8.5 is John Hurt.
     face_new = 12;
   }
 #ifdef FAST_TIME
-  if (include_hurt) {
+  if (config.hurt) {
     face_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 5) % 13;
   } else {
     face_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 5) % 12;
@@ -790,6 +840,22 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
     layer_mark_dirty(minute_layer);
   }
 
+  if (second_new != second_value) {
+    // Update the second display.
+    second_value = second_new;
+    hide_colon = false;
+    if (config.colon) {
+      // To blink the colon once per second, draw it now, then make it
+      // go away after a half-second.
+      layer_mark_dirty(second_layer);
+
+      if (blink_timer != NULL) {
+        app_timer_cancel(blink_timer);
+      }
+      blink_timer = app_timer_register(500, &handle_blink, 0);
+    }
+  }
+
   if (face_transition) {
     layer_mark_dirty(face_layer);
   } else if (face_new != face_value) {
@@ -799,7 +865,84 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
   set_next_timer();
 }
 
+// Updates any runtime settings as needed when the config changes.
+void apply_config() {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "apply_config, colon=%d", config.colon);
+  tick_timer_service_unsubscribe();
+
+#ifdef FAST_TIME
+  tick_timer_service_subscribe(SECOND_UNIT, handle_tick);
+#else
+  if (config.colon) {
+    tick_timer_service_subscribe(SECOND_UNIT, handle_tick);
+  } else {
+    tick_timer_service_subscribe(MINUTE_UNIT, handle_tick);
+  }
+#endif
+}
+
+void save_config() {
+  config.version = CURRENT_CONFIG_VERSION;
+  persist_write_data(PERSIST_KEY, &config, sizeof(config));
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Saved config: hurt=%d, hour_buzzer=%d, colon=%d", config.hurt, config.hour_buzzer, config.colon);
+}
+
+void load_config() {
+  // Default settings.
+  config.hour_buzzer = true;
+  config.hurt = true;
+  config.colon = false;
+
+  if (persist_exists(PERSIST_KEY)) {
+    ConfigOptions local_config;
+    if (persist_read_data(PERSIST_KEY, &local_config, sizeof(local_config)) == sizeof(local_config)) {
+      if (local_config.version == CURRENT_CONFIG_VERSION) {
+        config = local_config;
+        app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Loaded config: hurt=%d, hour_buzzer=%d, colon=%d", config.hurt, config.hour_buzzer, config.colon);
+      } else {
+        app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Discarded config with incorrect version %d", local_config.version);
+      }
+    } else {
+      app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Wrong previous config size.");
+    }
+  } else {
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "No previous config.");
+  }
+}
+
+void in_dropped_handler(AppMessageResult reason, void *context) {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "in_dropped_handler");
+}
+
+void in_received_handler(DictionaryIterator *received, void *context) {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "in_received_handler");
+  Tuple *hurt = dict_find(received, CK_hurt);
+  if (hurt != NULL) {
+    config.hurt = hurt->value->int32;
+  }
+
+  Tuple *hour_buzzer = dict_find(received, CK_hour_buzzer);
+  if (hour_buzzer != NULL) {
+    config.hour_buzzer = hour_buzzer->value->int32;
+  }
+
+  Tuple *colon = dict_find(received, CK_colon);
+  if (colon != NULL) {
+    config.colon = colon->value->int32;
+  }
+
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "New config: hurt=%d, hour_buzzer=%d, colon=%d", config.hurt, config.hour_buzzer, config.colon);
+  save_config();
+  apply_config();
+}
+
 void handle_init() {
+  load_config();
+
+  app_message_register_inbox_received(in_received_handler);
+  app_message_register_inbox_dropped(in_dropped_handler);
+  app_message_open(64, 64);
+
   time_t now = time(NULL);
   struct tm *startup_time = localtime(&now);
   srand(now);
@@ -808,6 +951,8 @@ void handle_init() {
   face_value = -1;
   last_buzz_hour = -1;
   minute_value = startup_time->tm_min;
+  second_value = startup_time->tm_sec;
+  hide_colon = false;
   
   window = window_create();
   // GColorClear doesn't seem to work: it is the same as GColorWhite in this context.
@@ -827,17 +972,17 @@ void handle_init() {
   layer_set_update_proc(face_layer, &face_layer_update_callback);
   layer_add_child(root_layer, face_layer);
 
-  minute_layer = layer_create(GRect(95, 134, 54, 35));
+  minute_layer = layer_create(GRect(103, 134, 54, 35));
   layer_set_update_proc(minute_layer, &minute_layer_update_callback);
   layer_add_child(root_layer, minute_layer);
 
+  second_layer = layer_create(GRect(95, 134, 16, 35));
+  layer_set_update_proc(second_layer, &second_layer_update_callback);
+  layer_add_child(root_layer, second_layer);
+
   start_transition(startup_time->tm_hour % 12, true);
 
-#ifdef FAST_TIME
-  tick_timer_service_subscribe(SECOND_UNIT, handle_tick);
-#else
-  tick_timer_service_subscribe(MINUTE_UNIT, handle_tick);
-#endif
+  apply_config();
 }
 
 void handle_deinit() {

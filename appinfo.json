@@ -2,13 +2,18 @@
   "uuid": "221ea62f-e2d0-4725-97c3-7fb3a2af4c0c",
   "shortName": "12 Doctors",
   "longName": "12 Doctors",
+  "capabilities": [ "configurable" ],
   "companyName": "drwrose",
   "versionCode": 1,
   "versionLabel": "2.1.0",
   "watchapp": {
     "watchface": true
   },
-  "appKeys": {},
+  "appKeys": {
+    "hurt": 0,
+    "hour_buzzer": 1,
+    "colon": 2
+  },
   "resources": {
     "media": [
       {
