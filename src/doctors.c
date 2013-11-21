@@ -769,7 +769,6 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 }
   
 void minute_layer_update_callback(Layer *me, GContext* ctx) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "minute_layer_update_callback");
   GFont font;
   GRect box;
   static const int buffer_size = 128;
@@ -790,7 +789,6 @@ void minute_layer_update_callback(Layer *me, GContext* ctx) {
 }
   
 void second_layer_update_callback(Layer *me, GContext* ctx) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "second_layer_update_callback, config.colon = %d, second_value = %d, hide_colon = %d", config.colon, second_value, hide_colon);
   if (!config.colon || !hide_colon) {
     GFont font;
     GRect box;
@@ -910,10 +908,6 @@ void load_config() {
   }
 }
 
-void in_dropped_handler(AppMessageResult reason, void *context) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "in_dropped_handler");
-}
-
 void in_received_handler(DictionaryIterator *received, void *context) {
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "in_received_handler");
   Tuple *hurt = dict_find(received, CK_hurt);
@@ -940,7 +934,6 @@ void handle_init() {
   load_config();
 
   app_message_register_inbox_received(in_received_handler);
-  app_message_register_inbox_dropped(in_dropped_handler);
   app_message_open(64, 64);
 
   time_t now = time(NULL);
