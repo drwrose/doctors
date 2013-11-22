@@ -4,7 +4,7 @@
 var default_keep_battery_gauge = 0;
 var default_keep_bluetooth_indicator = 0;
 var default_second_hand = 0;
-var default_hour_buzzer = 1;
+var default_hour_buzzer = 0;
 var default_hurt = 1;
 
 var keep_battery_gauge = localStorage.getItem("doctors:keep_battery_gauge");

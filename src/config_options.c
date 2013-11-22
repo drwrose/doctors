@@ -11,7 +11,7 @@ void init_default_options() {
   config.keep_battery_gauge = false;
   config.keep_bluetooth_indicator = false;
   config.second_hand = false;
-  config.hour_buzzer = true;
+  config.hour_buzzer = false;
   config.hurt = true;
 }
 
