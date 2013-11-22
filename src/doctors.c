@@ -1,5 +1,7 @@
 #include <pebble.h>
 #include "assert.h"
+#include "bluetooth_indicator.h"
+#include "battery_gauge.h"
 #include "config_options.h"
 
 // Define this during development to make it easier to see animations
@@ -858,6 +860,9 @@ void apply_config() {
     tick_timer_service_subscribe(MINUTE_UNIT, handle_tick);
   }
 #endif
+
+  refresh_battery_gauge();
+  refresh_bluetooth_indicator();
 }
 
 void handle_init() {
@@ -902,6 +907,9 @@ void handle_init() {
   second_layer = layer_create(GRect(95, 134, 16, 35));
   layer_set_update_proc(second_layer, &second_layer_update_callback);
   layer_add_child(root_layer, second_layer);
+
+  init_battery_gauge(root_layer, 125, 0, false, true);
+  init_bluetooth_indicator(root_layer, 0, 0, false, true);
 
   start_transition(startup_time->tm_hour % 12, true);
 
