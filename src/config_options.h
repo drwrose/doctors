@@ -22,7 +22,7 @@ typedef struct {
   bool second_hand;
   bool hour_buzzer;
   bool hurt;
-} ConfigOptions;
+} __attribute__((__packed__)) ConfigOptions;
 
 #define CURRENT_CONFIG_VERSION 1
 extern ConfigOptions config;
