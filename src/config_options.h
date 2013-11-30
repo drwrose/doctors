@@ -16,7 +16,6 @@ typedef enum {
 #define PERSIST_KEY 0x5150
 
 typedef struct {
-  int version;
   bool keep_battery_gauge;
   bool keep_bluetooth_indicator;
   bool second_hand;
@@ -24,7 +23,6 @@ typedef struct {
   bool hurt;
 } __attribute__((__packed__)) ConfigOptions;
 
-#define CURRENT_CONFIG_VERSION 1
 extern ConfigOptions config;
 
 void init_default_options();
