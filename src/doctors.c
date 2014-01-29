@@ -918,9 +918,9 @@ void handle_init() {
 
 void handle_deinit() {
   tick_timer_service_unsubscribe();
-
   stop_transition();
 
+  window_stack_pop_all(false);  // Not sure if this is needed?
   layer_destroy(minute_layer);
   layer_destroy(face_layer);
   window_destroy(window);
