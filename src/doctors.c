@@ -431,6 +431,8 @@ void set_next_timer();
 // Triggered at ANIM_TICK_MS intervals for transition animations; also
 // triggered occasionally to check the hour buzzer.
 void handle_timer(void *data) {
+  anim_timer = NULL;  // When the timer is handled, it is implicitly canceled.
+
   if (face_transition) {
     layer_mark_dirty(face_layer);
   }
@@ -440,6 +442,8 @@ void handle_timer(void *data) {
 
 // Triggered at 500 ms intervals to blink the colon.
 void handle_blink(void *data) {
+  blink_timer = NULL;  // When the timer is handled, it is implicitly canceled.
+
   if (config.second_hand) {
     hide_colon = true;
     layer_mark_dirty(second_layer);
@@ -552,7 +556,11 @@ void start_transition(int face_new, bool for_startup) {
     wipe_direction = false;
     sprite_sel = 0;
     anim_direction = false;
-    num_transition_frames = NUM_TRANSITION_FRAMES_STARTUP;
+
+    // We used to want this to go super-fast at startup, to match the
+    // speed of the system wipe, but we no longer try to do this
+    // (since the system wipe is different nowadays anyway).
+    //num_transition_frames = NUM_TRANSITION_FRAMES_STARTUP;
 
   } else {
     // Choose a random transition at the top of the hour.
@@ -832,6 +840,7 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
 
       if (blink_timer != NULL) {
         app_timer_cancel(blink_timer);
+	blink_timer = NULL;
       }
       blink_timer = app_timer_register(500, &handle_blink, 0);
     }
@@ -888,10 +897,11 @@ void handle_init() {
   struct Layer *root_layer = window_get_root_layer(window);
   layer_set_update_proc(root_layer, &root_layer_update_callback);
 
-  // We pass false in an attempt to not use the window animation,
-  // since we'll be animating the TARDIS transition ourselves.
-  // Doesn't appear to work--it's always animated anyway.
-  window_stack_push(window, false);
+  // We'd like to pass false in an attempt to not use the window
+  // animation, since we'll be animating the TARDIS transition
+  // ourselves.  But this doesn't appear to work--it's always animated
+  // anyway.  So whatever.
+  window_stack_push(window, true);
 
   mins_background = rle_bwd_create(RESOURCE_ID_MINS_BACKGROUND);
   assert(mins_background.bitmap != NULL);
