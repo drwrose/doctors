@@ -773,7 +773,7 @@ void minute_layer_update_callback(Layer *me, GContext* ctx) {
 
   graphics_context_set_text_color(ctx, GColorBlack);
 
-  snprintf(buffer, buffer_size, "%02d", minute_value);
+  snprintf(buffer, buffer_size, " %02d", minute_value);
   graphics_draw_text(ctx, buffer, font, box,
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                      NULL);
@@ -910,7 +910,7 @@ void handle_init() {
   layer_set_update_proc(face_layer, &face_layer_update_callback);
   layer_add_child(root_layer, face_layer);
 
-  minute_layer = layer_create(GRect(103, 134, 54, 35));
+  minute_layer = layer_create(GRect(95, 134, 62, 35));
   layer_set_update_proc(minute_layer, &minute_layer_update_callback);
   layer_add_child(root_layer, minute_layer);
 
