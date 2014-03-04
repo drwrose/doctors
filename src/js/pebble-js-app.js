@@ -7,38 +7,45 @@ var default_second_hand = 0;
 var default_hour_buzzer = 0;
 var default_hurt = 1;
 
-var keep_battery_gauge = localStorage.getItem("doctors:keep_battery_gauge");
-if (!keep_battery_gauge) {
-    keep_battery_gauge = default_keep_battery_gauge;
-}
-keep_battery_gauge = parseInt(keep_battery_gauge);
-
-var keep_bluetooth_indicator = localStorage.getItem("doctors:keep_bluetooth_indicator");
-if (!keep_bluetooth_indicator) {
-    keep_bluetooth_indicator = default_keep_battery_gauge;
-}
-keep_bluetooth_indicator = parseInt(keep_bluetooth_indicator);
-
-var second_hand = localStorage.getItem("doctors:second_hand");
-if (!second_hand) {
-    second_hand = default_second_hand;
-}
-second_hand = parseInt(second_hand);
-
-var hour_buzzer = localStorage.getItem("doctors:hour_buzzer");
-if (!hour_buzzer) {
-    hour_buzzer = default_hour_buzzer;
-}
-hour_buzzer = parseInt(hour_buzzer);
-
-var hurt = localStorage.getItem("doctors:hurt");
-if (!hurt) {
-    hurt = default_hurt;
-}
-hurt = parseInt(hurt);
+var keep_battery_gauge;
+var keep_bluetooth_indicator;
+var second_hand;
+var hour_buzzer;
+var hurt;
 
 Pebble.addEventListener("ready", function() {
     console.log("ready");
+
+    keep_battery_gauge = localStorage.getItem("doctors:keep_battery_gauge");
+    if (!keep_battery_gauge) {
+	keep_battery_gauge = default_keep_battery_gauge;
+    }
+    keep_battery_gauge = parseInt(keep_battery_gauge);
+
+    keep_bluetooth_indicator = localStorage.getItem("doctors:keep_bluetooth_indicator");
+    if (!keep_bluetooth_indicator) {
+	keep_bluetooth_indicator = default_keep_battery_gauge;
+    }
+    keep_bluetooth_indicator = parseInt(keep_bluetooth_indicator);
+
+    second_hand = localStorage.getItem("doctors:second_hand");
+    if (!second_hand) {
+	second_hand = default_second_hand;
+    }
+    second_hand = parseInt(second_hand);
+
+    hour_buzzer = localStorage.getItem("doctors:hour_buzzer");
+    if (!hour_buzzer) {
+	hour_buzzer = default_hour_buzzer;
+    }
+    hour_buzzer = parseInt(hour_buzzer);
+
+    hurt = localStorage.getItem("doctors:hurt");
+    if (!hurt) {
+	hurt = default_hurt;
+    }
+    hurt = parseInt(hurt);
+
     console.log("   keep_battery_gauge: " + keep_battery_gauge);
     console.log("   keep_bluetooth_indicator: " + keep_bluetooth_indicator);
     console.log("   second_hand: " + second_hand);
