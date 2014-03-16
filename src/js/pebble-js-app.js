@@ -13,8 +13,23 @@ var second_hand;
 var hour_buzzer;
 var hurt;
 
-Pebble.addEventListener("ready", function() {
-    console.log("ready");
+var logLocalStorage = function() {
+    var keys = Object.keys(localStorage);
+    console.log("  localStorage = {");
+    for (var key in keys) {
+	console.log('      "' + keys[key] + '" : ' + localStorage[keys[key]] + ',');
+    }
+    console.log("  }");
+}
+
+var initialized = false;
+var initialize = function() {
+    console.log("initialize: " + initialized);
+    if (initialized) {
+	return;
+    }
+
+    logLocalStorage();
 
     keep_battery_gauge = localStorage.getItem("doctors:keep_battery_gauge");
     if (!keep_battery_gauge) {
@@ -69,9 +84,16 @@ Pebble.addEventListener("ready", function() {
 	}, 1000)
 
     initialized = true;
+};
+
+Pebble.addEventListener("ready", function(e) {
+    console.log("ready");
+    initialize();
 });
 
 Pebble.addEventListener("showConfiguration", function(e) {
+    console.log("showConfiguration starting");
+    initialize();
     var url = "http://www.ddrose.com/pebble/doctors_configure.html?keep_battery_gauge=" + keep_battery_gauge + "&keep_bluetooth_indicator=" + keep_bluetooth_indicator + "&second_hand=" + second_hand + "&hour_buzzer=" + hour_buzzer + "&hurt=" + hurt;
     console.log("showConfiguration: " + url);
     var result = Pebble.openURL(url);
@@ -83,22 +105,26 @@ Pebble.addEventListener("webviewclosed", function(e) {
     console.log(e.type);
     console.log(e.response);
 
-    var configuration = JSON.parse(e.response);
+    if (e.response && e.response != 'CANCELLED') {
+	var configuration = JSON.parse(e.response);
   	console.log("sending runtime config: " + JSON.stringify(configuration));
-    Pebble.sendAppMessage(configuration);
-    
-    keep_battery_gauge = configuration["keep_battery_gauge"];
-    localStorage.setItem("doctors:keep_battery_gauge", keep_battery_gauge);
-    
-    keep_bluetooth_indicator = configuration["keep_bluetooth_indicator"];
-    localStorage.setItem("doctors:keep_bluetooth_indicator", keep_bluetooth_indicator);
-    
-    second_hand = configuration["second_hand"];
-    localStorage.setItem("doctors:second_hand", second_hand);
-    
-    hour_buzzer = configuration["hour_buzzer"];
-    localStorage.setItem("doctors:hour_buzzer", hour_buzzer);
-    
-    hurt = configuration["hurt"];
-    localStorage.setItem("doctors:hurt", hurt);
+	Pebble.sendAppMessage(configuration);
+	
+	keep_battery_gauge = configuration["keep_battery_gauge"];
+	localStorage.setItem("doctors:keep_battery_gauge", keep_battery_gauge);
+	
+	keep_bluetooth_indicator = configuration["keep_bluetooth_indicator"];
+	localStorage.setItem("doctors:keep_bluetooth_indicator", keep_bluetooth_indicator);
+	
+	second_hand = configuration["second_hand"];
+	localStorage.setItem("doctors:second_hand", second_hand);
+	
+	hour_buzzer = configuration["hour_buzzer"];
+	localStorage.setItem("doctors:hour_buzzer", hour_buzzer);
+	
+	hurt = configuration["hurt"];
+	localStorage.setItem("doctors:hurt", hurt);
+
+	logLocalStorage();
+    }
 });
