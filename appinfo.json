@@ -5,7 +5,7 @@
   "capabilities": [ "configurable" ],
   "companyName": "drwrose",
   "versionCode": 1,
-  "versionLabel": "2.3.4",
+  "versionLabel": "2.4.0",
   "watchapp": {
     "watchface": true
   },
@@ -14,7 +14,9 @@
     "keep_bluetooth_indicator": 1,
     "second_hand": 2,
     "hour_buzzer": 3,
-    "hurt": 4
+    "hurt": 4,
+    "show_date" : 5,
+    "display_lang" : 6
   },
   "resources": {
     "media": [
@@ -158,6 +160,11 @@
         "type": "raw",
         "name": "MINS_BACKGROUND",
         "file": "mins_background.rle"
+      },
+      {
+        "type": "raw",
+        "name": "DATE_BACKGROUND",
+        "file": "date_background.rle"
       }
     ]
   }

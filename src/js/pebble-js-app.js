@@ -6,12 +6,16 @@ var default_keep_bluetooth_indicator = 0;
 var default_second_hand = 0;
 var default_hour_buzzer = 0;
 var default_hurt = 1;
+var default_show_date = 0;
+var default_display_lang = 0;
 
 var keep_battery_gauge;
 var keep_bluetooth_indicator;
 var second_hand;
 var hour_buzzer;
 var hurt;
+var show_date;
+var display_lang;
 
 var logLocalStorage = function() {
     var keys = Object.keys(localStorage);
@@ -61,28 +65,44 @@ var initialize = function() {
     }
     hurt = parseInt(hurt);
 
+    show_date = localStorage.getItem("doctors:show_date");
+    if (!show_date) {
+	show_date = default_show_date;
+    }
+    show_date = parseInt(show_date);
+
+    display_lang = localStorage.getItem("doctors:display_lang");
+    if (!display_lang) {
+	display_lang = default_display_lang;
+    }
+    display_lang = parseInt(display_lang);
+
     console.log("   keep_battery_gauge: " + keep_battery_gauge);
     console.log("   keep_bluetooth_indicator: " + keep_bluetooth_indicator);
     console.log("   second_hand: " + second_hand);
     console.log("   hour_buzzer: " + hour_buzzer);
     console.log("   hurt: " + hurt);
+    console.log("   show_date: " + show_date);
+    console.log("   display_lang: " + display_lang);
 
-	// At startup, send the current configuration to the Pebble--the
-	// phone storage keeps the authoritative state.  We delay by 1
-	// second to give the Pebble a chance to set itself up for
-	// receiving messages.
-	setTimeout(function() {
-		var configuration = {
-			'keep_battery_gauge' : keep_battery_gauge,
-			'keep_bluetooth_indicator' : keep_bluetooth_indicator,
-			'second_hand' : second_hand,
-			'hour_buzzer' : hour_buzzer,
-			'hurt' : hurt,
-		};
-  	    console.log("sending init config: " + JSON.stringify(configuration));
-		Pebble.sendAppMessage(configuration);
-	}, 1000)
-
+    // At startup, send the current configuration to the Pebble--the
+    // phone storage keeps the authoritative state.  We delay by 1
+    // second to give the Pebble a chance to set itself up for
+    // receiving messages.
+    setTimeout(function() {
+	var configuration = {
+	    'keep_battery_gauge' : keep_battery_gauge,
+	    'keep_bluetooth_indicator' : keep_bluetooth_indicator,
+	    'second_hand' : second_hand,
+	    'hour_buzzer' : hour_buzzer,
+	    'hurt' : hurt,
+	    'show_date' : show_date,
+	    'display_lang' : display_lang,
+	};
+  	console.log("sending init config: " + JSON.stringify(configuration));
+	Pebble.sendAppMessage(configuration);
+    }, 1000)
+    
     initialized = true;
 };
 
@@ -94,7 +114,7 @@ Pebble.addEventListener("ready", function(e) {
 Pebble.addEventListener("showConfiguration", function(e) {
     console.log("showConfiguration starting");
     initialize();
-    var url = "http://www.ddrose.com/pebble/doctors_configure.html?keep_battery_gauge=" + keep_battery_gauge + "&keep_bluetooth_indicator=" + keep_bluetooth_indicator + "&second_hand=" + second_hand + "&hour_buzzer=" + hour_buzzer + "&hurt=" + hurt;
+    var url = "http://www.ddrose.com/pebble/doctors_2_4_configure.html?keep_battery_gauge=" + keep_battery_gauge + "&keep_bluetooth_indicator=" + keep_bluetooth_indicator + "&second_hand=" + second_hand + "&hour_buzzer=" + hour_buzzer + "&hurt=" + hurt + "&show_date=" + show_date + "&display_lang=" + display_lang;
     console.log("showConfiguration: " + url);
     var result = Pebble.openURL(url);
     console.log("openURL result: " + result);
@@ -124,6 +144,12 @@ Pebble.addEventListener("webviewclosed", function(e) {
 	
 	hurt = configuration["hurt"];
 	localStorage.setItem("doctors:hurt", hurt);
+	
+	show_date = configuration["show_date"];
+	localStorage.setItem("doctors:show_date", show_date);
+	
+	display_lang = configuration["display_lang"];
+	localStorage.setItem("doctors:display_lang", display_lang);
 
 	logLocalStorage();
     }

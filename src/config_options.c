@@ -12,11 +12,13 @@ void init_default_options() {
   config.second_hand = false;
   config.hour_buzzer = false;
   config.hurt = true;
+  config.show_date = false;
+  config.display_lang = DL_english;
 }
 
 const char *show_config() {
   static char buffer[48];
-  snprintf(buffer, 48, "bat: %d, bt: %d, sh: %d, hb: %d, h: %d", config.keep_battery_gauge, config.keep_bluetooth_indicator, config.second_hand, config.hour_buzzer, config.hurt);
+  snprintf(buffer, 48, "bat: %d, bt: %d, sh: %d, hb: %d, h: %d, sd: %d, dl: %d", config.keep_battery_gauge, config.keep_bluetooth_indicator, config.second_hand, config.hour_buzzer, config.hurt, config.show_date, config.display_lang);
   return buffer;
 }
 
@@ -69,6 +71,16 @@ void receive_config_handler(DictionaryIterator *received, void *context) {
   Tuple *hurt = dict_find(received, CK_hurt);
   if (hurt != NULL) {
     config.hurt = hurt->value->int32;
+  }
+
+  Tuple *show_date = dict_find(received, CK_show_date);
+  if (show_date != NULL) {
+    config.show_date = show_date->value->int32;
+  }
+
+  Tuple *display_lang = dict_find(received, CK_display_lang);
+  if (display_lang != NULL) {
+    config.display_lang = (DisplayLanguages)(display_lang->value->int32 % DL_num_languages);
   }
 
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "New config: %s", show_config());

@@ -3,17 +3,31 @@
 
 #include <pebble.h>
 
-// These keys are used to communicate with Javascript.
+// These keys are used to communicate with Javascript.  They match
+// similar names in appinfo.json.
 typedef enum {
   CK_keep_battery_gauge = 0,
   CK_keep_bluetooth_indicator = 1,
   CK_second_hand = 2,
   CK_hour_buzzer = 3,
   CK_hurt = 4,
+  CK_show_date = 5,
+  CK_display_lang = 6,
 } ConfigKey;
 
 // This key is used to record the persistent storage.
 #define PERSIST_KEY 0x5150
+
+typedef enum {
+  DL_english,
+  DL_french,
+  DL_german,
+  DL_italian,
+  DL_dutch,
+  DL_spanish,
+  DL_portuguese,
+  DL_num_languages,
+} DisplayLanguages;
 
 typedef struct {
   bool keep_battery_gauge;
@@ -21,6 +35,8 @@ typedef struct {
   bool second_hand;
   bool hour_buzzer;
   bool hurt;
+  bool show_date;
+  DisplayLanguages display_lang;
 } __attribute__((__packed__)) ConfigOptions;
 
 extern ConfigOptions config;
