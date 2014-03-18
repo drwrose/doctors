@@ -3,7 +3,6 @@
 import PIL.Image
 import sys
 import os
-import getopt
 
 help = """
 make_rle.py
@@ -12,6 +11,10 @@ Converts an image from a standard format (for instance, a png) into an
 .rle file for loading pre-compressed into a Pebble watch app.
 
 make_rle.py [opts]
+
+Options:
+
+   -t Generate png-trans type entries (white/black pairs) for transparent PNG's.
         
 """
 
@@ -190,9 +193,7 @@ class Rl2Unpacker:
 
         return result
             
-            
-def make_rle(filename):
-    image = PIL.Image.open(filename)
+def make_rle_image(rleFilename, image):
     image = image.convert('1')
     w, h = image.size
     stride = ((w + 31) / 32) * 4
@@ -227,26 +228,62 @@ def make_rle(filename):
     result0 = list(generate_rle(generate_pixels(image, stride)))
     assert verify == result0
 
-    basename = os.path.splitext(filename)[0]
-    rleFilename = basename + '.rle'
     rle = open(rleFilename, 'wb')
     rle.write('%c%c%c%c' % (w, h, stride, n))
     rle.write(result)
     rle.close()
     
     print '%s: %s vs. %s' % (rleFilename, 4 + len(result), fullSize)
+
+def make_rle(filename):
+    image = PIL.Image.open(filename)
+    basename = os.path.splitext(filename)[0]
+    rleFilename = basename + '.rle'
+    make_rle_image(rleFilename, image)
+
+def make_rle_trans(filename):
+    image = PIL.Image.open(filename)
+    bits, alpha = image.convert('LA').split()
+    bits = bits.convert('1')
+    alpha = alpha.convert('1')
+
+    zero = PIL.Image.new('1', image.size, 0)
+    one = PIL.Image.new('1', image.size, 1)
+
+    black = PIL.Image.composite(zero, one, bits)
+    black = PIL.Image.compose(zero, black, alpha)
+    white = PIL.Image.composite(zero, one, bits)
+    white = PIL.Image.compose(zero, white, alpha)
+    white.save('white.png')
+    black.save('black.png')
+    
+    #basename = os.path.splitext(filename)[0]
+    #rleFilename = basename + '_white.rle'
+    #make_rle_image(rleFilename, image)
+    #rleFilename = basename + '_black.rle'
+    #make_rle_image(rleFilename, image)
     
 
-# Main.
-try:
-    opts, args = getopt.getopt(sys.argv[1:], 'h')
-except getopt.error, msg:
-    usage(1, msg)
+if __name__ == '__main__':
+    # Main.
+    import getopt
 
-for opt, arg in opts:
-    if opt == '-h':
-        usage(0)
+    makeTrans = False
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'th')
+    except getopt.error, msg:
+        usage(1, msg)
 
-print args
-for filename in args:
-    make_rle(filename)
+    for opt, arg in opts:
+        if opt == '-t':
+            makeTrans = True
+        elif opt == '-h':
+            usage(0)
+
+    print args
+    for filename in args:
+        if makeTrans:
+            make_rle_trans(filename)
+        else:
+            make_rle(filename)
+            
