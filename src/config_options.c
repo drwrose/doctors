@@ -1,4 +1,5 @@
 #include "config_options.h"
+#include "lang_table.h"
 
 ConfigOptions config;
 
@@ -17,8 +18,8 @@ void init_default_options() {
 }
 
 const char *show_config() {
-  static char buffer[48];
-  snprintf(buffer, 48, "bat: %d, bt: %d, sh: %d, hb: %d, h: %d, sd: %d, dl: %d", config.keep_battery_gauge, config.keep_bluetooth_indicator, config.second_hand, config.hour_buzzer, config.hurt, config.show_date, config.display_lang);
+  static char buffer[80];
+  snprintf(buffer, 80, "bat: %d, bt: %d, sh: %d, hb: %d, h: %d, sd: %d, dl: %d", config.keep_battery_gauge, config.keep_bluetooth_indicator, config.second_hand, config.hour_buzzer, config.hurt, config.show_date, config.display_lang);
   return buffer;
 }
 
@@ -80,7 +81,13 @@ void receive_config_handler(DictionaryIterator *received, void *context) {
 
   Tuple *display_lang = dict_find(received, CK_display_lang);
   if (display_lang != NULL) {
-    config.display_lang = (DisplayLanguages)(display_lang->value->int32 % DL_num_languages);
+    // Look for the matching language name in our table of known languages.
+    for (int li = 0; li < num_langs; ++li) {
+      if (strcmp(display_lang->value->cstring, lang_table[li].locale_name) == 0) {
+	config.display_lang = li;
+	break;
+      }
+    }
   }
 
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "New config: %s", show_config());

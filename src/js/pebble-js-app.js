@@ -7,7 +7,7 @@ var default_second_hand = 0;
 var default_hour_buzzer = 0;
 var default_hurt = 1;
 var default_show_date = 0;
-var default_display_lang = 0;
+var default_display_lang = 'en_US';
 
 var keep_battery_gauge;
 var keep_bluetooth_indicator;
@@ -75,7 +75,6 @@ var initialize = function() {
     if (!display_lang) {
 	display_lang = default_display_lang;
     }
-    display_lang = parseInt(display_lang);
 
     console.log("   keep_battery_gauge: " + keep_battery_gauge);
     console.log("   keep_bluetooth_indicator: " + keep_bluetooth_indicator);
@@ -114,7 +113,7 @@ Pebble.addEventListener("ready", function(e) {
 Pebble.addEventListener("showConfiguration", function(e) {
     console.log("showConfiguration starting");
     initialize();
-    var url = "http://www.ddrose.com/pebble/doctors_2_4_configure.html?keep_battery_gauge=" + keep_battery_gauge + "&keep_bluetooth_indicator=" + keep_bluetooth_indicator + "&second_hand=" + second_hand + "&hour_buzzer=" + hour_buzzer + "&hurt=" + hurt + "&show_date=" + show_date + "&display_lang=" + display_lang;
+    var url = "http://www.ddrose.com/pebble/doctors_2_4_1_configure.html?keep_battery_gauge=" + keep_battery_gauge + "&keep_bluetooth_indicator=" + keep_bluetooth_indicator + "&second_hand=" + second_hand + "&hour_buzzer=" + hour_buzzer + "&hurt=" + hurt + "&show_date=" + show_date + "&display_lang=" + display_lang;
     console.log("showConfiguration: " + url);
     var result = Pebble.openURL(url);
     console.log("openURL result: " + result);

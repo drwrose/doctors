@@ -1,49 +1,7 @@
 #include "bwd.h"
 #include "assert.h"
-
-#define RBUFFER_SIZE 256
-typedef struct {
-  ResHandle _rh;
-  size_t _i;
-  size_t _filled_size;
-  size_t _bytes_read;
-  uint8_t *_buffer;
-} RBuffer;
-
-// Begins reading from a raw resource.  Should be matched by a later
-// call to rbuffer_deinit() to free this stuff.
-void rbuffer_init(int resource_id, RBuffer *rb) {
-  rb->_buffer = (uint8_t *)malloc(RBUFFER_SIZE);
-  assert(rb->_buffer != NULL);
-  
-  rb->_rh = resource_get_handle(resource_id);
-  rb->_i = 0;
-  rb->_filled_size = resource_load_byte_range(rb->_rh, 0, rb->_buffer, RBUFFER_SIZE);
-  rb->_bytes_read = rb->_filled_size;
-}
-
-// Gets the next byte from the rbuffer.  Returns EOF at end.
-int rbuffer_getc(RBuffer *rb) {
-  if (rb->_i >= RBUFFER_SIZE) {
-    rb->_filled_size = resource_load_byte_range(rb->_rh, rb->_bytes_read, rb->_buffer, RBUFFER_SIZE);
-    rb->_bytes_read += rb->_filled_size;
-    rb->_i = 0;
-  }
-  if (rb->_i >= rb->_filled_size) {
-    return EOF;
-  }
-
-  int result = rb->_buffer[rb->_i];
-  rb->_i++;
-  return result;
-}
-
-// Frees the resources reserved in rbuffer_init().
-void rbuffer_deinit(RBuffer *rb) {
-  assert(rb->_buffer != NULL);
-  free(rb->_buffer);
-  rb->_buffer = NULL;
-}
+//#include "../resources/generated_config.h"
+#define SUPPORT_RLE
 
 // From bitmapgen.py:
 /*
@@ -85,6 +43,72 @@ void bwd_destroy(BitmapWithData *bwd) {
   }
 }
 
+// Initialize a bitmap from a regular unencoded resource (i.e. as
+// loaded from a png file).  This is the same as
+// gbitmap_create_with_resource(), but wrapped within the
+// BitmapWithData interface to be consistent with rle_bwd_create().
+// The returned bitmap must be released with bwd_destroy().
+BitmapWithData png_bwd_create(int resource_id) {
+  GBitmap *image = gbitmap_create_with_resource(resource_id);
+  return bwd_create(image, NULL);
+}
+
+#ifndef SUPPORT_RLE
+
+// Here's the dummy implementation of rle_bwd_create(), if SUPPORT_RLE
+// is not defined.
+BitmapWithData rle_bwd_create(int resource_id) {
+  return png_bwd_create(resource_id);
+}
+
+#else  // SUPPORT_RLE
+
+// Here's the proper implementation of rle_bwd_create() and its support functions.
+
+#define RBUFFER_SIZE 64
+typedef struct {
+  ResHandle _rh;
+  size_t _i;
+  size_t _filled_size;
+  size_t _bytes_read;
+  uint8_t _buffer[RBUFFER_SIZE];
+} RBuffer;
+
+// Begins reading from a raw resource.  Should be matched by a later
+// call to rbuffer_deinit() to free this stuff.
+static void rbuffer_init(int resource_id, RBuffer *rb) {
+  //  rb->_buffer = (uint8_t *)malloc(RBUFFER_SIZE);
+  //  assert(rb->_buffer != NULL);
+  
+  rb->_rh = resource_get_handle(resource_id);
+  rb->_i = 0;
+  rb->_filled_size = resource_load_byte_range(rb->_rh, 0, rb->_buffer, RBUFFER_SIZE);
+  rb->_bytes_read = rb->_filled_size;
+}
+
+// Gets the next byte from the rbuffer.  Returns EOF at end.
+static int rbuffer_getc(RBuffer *rb) {
+  if (rb->_i >= RBUFFER_SIZE) {
+    rb->_filled_size = resource_load_byte_range(rb->_rh, rb->_bytes_read, rb->_buffer, RBUFFER_SIZE);
+    rb->_bytes_read += rb->_filled_size;
+    rb->_i = 0;
+  }
+  if (rb->_i >= rb->_filled_size) {
+    return EOF;
+  }
+
+  int result = rb->_buffer[rb->_i];
+  rb->_i++;
+  return result;
+}
+
+// Frees the resources reserved in rbuffer_init().
+static void rbuffer_deinit(RBuffer *rb) {
+  //  assert(rb->_buffer != NULL);
+  //  free(rb->_buffer);
+  //rb->_buffer = NULL;
+}
+
 // Used to unpack the integers of an rl2-encoding back into their
 // original rle sequence.  See make_rle.py.
 typedef struct {
@@ -94,7 +118,7 @@ typedef struct {
   int bi;
 } Rl2Unpacker;
 
-void rl2unpacker_init(Rl2Unpacker *rl2, RBuffer *rb, int n) {
+static void rl2unpacker_init(Rl2Unpacker *rl2, RBuffer *rb, int n) {
   // assumption: n is an integer divisor of 8.
   assert(n * (8 / n) == 8);
 
@@ -105,7 +129,7 @@ void rl2unpacker_init(Rl2Unpacker *rl2, RBuffer *rb, int n) {
 }
 
 // Gets the next integer from the rl2 encoding.  Returns EOF at end.
-int rl2unpacker_getc(Rl2Unpacker *rl2) {
+static int rl2unpacker_getc(Rl2Unpacker *rl2) {
   if (rl2->b == EOF) {
     return EOF;
   }
@@ -237,3 +261,4 @@ rle_bwd_create(int resource_id) {
   GBitmap *image = gbitmap_create_with_data(bitmap);
   return bwd_create(image, bitmap);
 }
+#endif  // SUPPORT_RLE

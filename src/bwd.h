@@ -14,8 +14,7 @@ typedef struct {
 
 BitmapWithData bwd_create(GBitmap *bitmap, void *data);
 void bwd_destroy(BitmapWithData *bwd);
-
-BitmapWithData rle_bwd_create(int resource_id);
 BitmapWithData png_bwd_create(int resource_id);
+BitmapWithData rle_bwd_create(int resource_id);
 
 #endif

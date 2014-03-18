@@ -4,6 +4,8 @@
 #include "battery_gauge.h"
 #include "config_options.h"
 #include "bwd.h"
+#include "lang_table.h"
+#include "../resources/lang_table.c"
 
 // Define this during development to make it easier to see animations
 // in a timely fashion.
@@ -44,18 +46,6 @@ BitmapWithData date_background;
 BitmapWithData fb_image;
 bool first_update = true;
 #endif  // FB_HACK
-
-const char *weekday_names[DL_num_languages][7] = {
-  { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" },  // English
-  { "Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam" },  // French
-  { "So", "Mo", "Di", "Mi", "Do", "Fr", "Sa" },         // German
-  { "Dom", "Lun", "Mar", "Mer", "Gio", "Ven", "Sab" },  // Italian
-  { "zo", "ma", "di", "wo", "do", "vr", "za", },        // Dutch
-  { "dom", "lun", "mar", "\x6d\x69\xc3\xa9", "jue", "vie", "\x73\xc3\xa1\x62" }, // Spanish
-  { "Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "\x53\xc3\xa1\x62", }, // Portuguese
-  //  { "\xd0\xb2\xd1\x81", "\xd0\xbf\xd0\xbd", "\xd0\xb2\xd1\x82", "\xd1\x81\xd1\x80", "\xd1\x87\xd1\x82", "\xd0\xbf\xd1\x82", "\xd1\x81\xd0\xb1",}, // Russian (unsupported by standard font)
-  //  { "ndz", "pon", "wto", "\xc5\x9b\x72\x6f", "czw", "ptk", "sob", }, // Polish (unsupported by standard font)
-};
 
 // The horizontal center point of the sprite.
 int sprite_cx = 0;
@@ -592,8 +582,9 @@ void date_layer_update_callback(Layer *me, GContext* ctx) {
     font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
     
     graphics_context_set_text_color(ctx, GColorBlack);
-    const char *day_name = weekday_names[config.display_lang][day_value];
-    snprintf(buffer, buffer_size, "%s %d", day_name, date_value);
+    const LangDef *lang = &lang_table[config.display_lang % num_langs];
+    const char *weekday_name = lang->weekday_names[day_value];
+    snprintf(buffer, buffer_size, "%s %d", weekday_name, date_value);
     graphics_draw_text(ctx, buffer, font, box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter,
                        NULL);
