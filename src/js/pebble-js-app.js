@@ -17,7 +17,16 @@ var hurt;
 var show_date;
 var display_lang;
 
-var logLocalStorage = function() {
+function sent_ack(e) {
+    console.log("Message sent");
+}
+
+function sent_nack(e) {
+    console.log("Message not sent: " + e.error);
+    //console.log(e.error.message);
+}
+
+function logLocalStorage() {
     var keys = Object.keys(localStorage);
     console.log("  localStorage = {");
     for (var key in keys) {
@@ -26,55 +35,45 @@ var logLocalStorage = function() {
     console.log("  }");
 }
 
+function getIntFromStorage(keyword, default_value) {
+    var value = localStorage.getItem("doctors:" + keyword);
+    if (!value) {
+	value = default_value;
+    }
+    value = parseInt(value);
+    if (isNaN(value)) {
+	value = default_value;
+    }
+
+    console.log("   " + keyword + ": " + value);
+    return value;
+}
+
+function getStringFromStorage(keyword, default_value) {
+    var value = localStorage.getItem("doctors:" + keyword);
+    if (!value) {
+	value = default_value;
+    }
+
+    console.log("   " + keyword + ": '" + value + "'");
+    return value;
+}
+
 var initialized = false;
-var initialize = function() {
+function initialize() {
     console.log("initialize: " + initialized);
     if (initialized) {
 	return;
     }
 
     logLocalStorage();
-
-    keep_battery_gauge = localStorage.getItem("doctors:keep_battery_gauge");
-    if (!keep_battery_gauge) {
-	keep_battery_gauge = default_keep_battery_gauge;
-    }
-    keep_battery_gauge = parseInt(keep_battery_gauge);
-
-    keep_bluetooth_indicator = localStorage.getItem("doctors:keep_bluetooth_indicator");
-    if (!keep_bluetooth_indicator) {
-	keep_bluetooth_indicator = default_keep_battery_gauge;
-    }
-    keep_bluetooth_indicator = parseInt(keep_bluetooth_indicator);
-
-    second_hand = localStorage.getItem("doctors:second_hand");
-    if (!second_hand) {
-	second_hand = default_second_hand;
-    }
-    second_hand = parseInt(second_hand);
-
-    hour_buzzer = localStorage.getItem("doctors:hour_buzzer");
-    if (!hour_buzzer) {
-	hour_buzzer = default_hour_buzzer;
-    }
-    hour_buzzer = parseInt(hour_buzzer);
-
-    hurt = localStorage.getItem("doctors:hurt");
-    if (!hurt) {
-	hurt = default_hurt;
-    }
-    hurt = parseInt(hurt);
-
-    show_date = localStorage.getItem("doctors:show_date");
-    if (!show_date) {
-	show_date = default_show_date;
-    }
-    show_date = parseInt(show_date);
-
-    display_lang = localStorage.getItem("doctors:display_lang");
-    if (!display_lang) {
-	display_lang = default_display_lang;
-    }
+    keep_battery_gauge = getIntFromStorage('keep_battery_gauge', default_keep_battery_gauge);
+    keep_bluetooth_indicator = getIntFromStorage('keep_bluetooth_indicator', default_keep_bluetooth_indicator);
+    second_hand = getIntFromStorage('second_hand', default_second_hand);
+    hour_buzzer = getIntFromStorage('hour_buzzer', default_hour_buzzer);
+    hurt = getIntFromStorage('hurt', default_hurt);
+    show_date = getIntFromStorage('show_date', default_show_date);
+    display_lang = getStringFromStorage('display_lang', default_display_lang);
 
     console.log("   keep_battery_gauge: " + keep_battery_gauge);
     console.log("   keep_bluetooth_indicator: " + keep_bluetooth_indicator);
@@ -99,7 +98,7 @@ var initialize = function() {
 	    'display_lang' : display_lang,
 	};
   	console.log("sending init config: " + JSON.stringify(configuration));
-	Pebble.sendAppMessage(configuration);
+	Pebble.sendAppMessage(configuration, sent_ack, sent_nack);
     }, 1000)
     
     initialized = true;
@@ -113,7 +112,7 @@ Pebble.addEventListener("ready", function(e) {
 Pebble.addEventListener("showConfiguration", function(e) {
     console.log("showConfiguration starting");
     initialize();
-    var url = "http://www.ddrose.com/pebble/doctors_2_4_1_configure.html?keep_battery_gauge=" + keep_battery_gauge + "&keep_bluetooth_indicator=" + keep_bluetooth_indicator + "&second_hand=" + second_hand + "&hour_buzzer=" + hour_buzzer + "&hurt=" + hurt + "&show_date=" + show_date + "&display_lang=" + display_lang;
+    var url = "http://www.ddrose.com/pebble/doctors_2_4_2_configure.html?keep_battery_gauge=" + keep_battery_gauge + "&keep_bluetooth_indicator=" + keep_bluetooth_indicator + "&second_hand=" + second_hand + "&hour_buzzer=" + hour_buzzer + "&hurt=" + hurt + "&show_date=" + show_date + "&display_lang=" + display_lang;
     console.log("showConfiguration: " + url);
     var result = Pebble.openURL(url);
     console.log("openURL result: " + result);
@@ -127,7 +126,7 @@ Pebble.addEventListener("webviewclosed", function(e) {
     if (e.response && e.response != 'CANCELLED') {
 	var configuration = JSON.parse(e.response);
   	console.log("sending runtime config: " + JSON.stringify(configuration));
-	Pebble.sendAppMessage(configuration);
+	Pebble.sendAppMessage(configuration, sent_ack, sent_nack);
 	
 	keep_battery_gauge = configuration["keep_battery_gauge"];
 	localStorage.setItem("doctors:keep_battery_gauge", keep_battery_gauge);

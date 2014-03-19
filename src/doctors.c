@@ -683,7 +683,20 @@ void handle_init() {
   load_config();
 
   app_message_register_inbox_received(receive_config_handler);
-  app_message_open(96, 96);
+  app_message_register_inbox_dropped(dropped_config_handler);
+
+  uint32_t inbox_max = app_message_inbox_size_maximum();
+  uint32_t outbox_max = app_message_outbox_size_maximum();
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "available message space %u, %u", (unsigned int)inbox_max, (unsigned int)outbox_max);
+  if (inbox_max > 300) {
+    inbox_max = 300;
+  }
+  if (outbox_max > 300) {
+    outbox_max = 300;
+  }
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "app_message_open(%u, %u)", (unsigned int)inbox_max, (unsigned int)outbox_max);
+  AppMessageResult open_result = app_message_open(inbox_max, outbox_max);
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "open_result = %d", open_result);
 
   time_t now = time(NULL);
   struct tm *startup_time = localtime(&now);
