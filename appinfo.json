@@ -5,7 +5,7 @@
   "capabilities": [ "configurable" ],
   "companyName": "drwrose",
   "versionCode": 1,
-  "versionLabel": "2.4.2",
+  "versionLabel": "2.5.0",
   "watchapp": {
     "watchface": true
   },
@@ -37,6 +37,11 @@
       "type": "png"
     },
     {
+      "name": "BATTERY_GAUGE_MASK",
+      "file": "battery_gauge_mask.png",
+      "type": "png"
+    },
+    {
       "name": "BLUETOOTH_DISCONNECTED",
       "file": "bluetooth_disconnected.png",
       "type": "png"
@@ -44,6 +49,11 @@
     {
       "name": "BLUETOOTH_CONNECTED",
       "file": "bluetooth_connected.png",
+      "type": "png"
+    },
+    {
+      "name": "BLUETOOTH_MASK",
+      "file": "bluetooth_mask.png",
       "type": "png"
     },
       {
