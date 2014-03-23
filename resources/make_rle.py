@@ -23,6 +23,19 @@ def usage(code, msg = ''):
     print >> sys.stderr, msg
     sys.exit(code)
 
+def unscreen(image):
+    """ Returns a new copy of the indicated image xored with a 1x1
+    checkerboard pattern.  The idea is to eliminate this kind of noise
+    from the source image if it happens to be present. """
+
+    image = image.copy()
+    w, h = image.size
+    for y in range(h):
+        for x in range(w):
+            if ((x ^ y) & 1):
+                image.putpixel((x, y), 255 - image.getpixel((x, y)))
+    return image
+
 def generate_pixels(image, stride):
     """ This generator yields a sequence of 0/255 values for the pixels
     of the image.  We extend the row to stride * 8 pixels. """
@@ -69,7 +82,7 @@ def chop_rle(source, n):
     """ Separates the rle sequence into a sequence of n-bit chunks.
     If a value is too large to fit into a single chunk, a series of
     0-valued chunks will introduce it. """
-    
+
     result = ''
     for v in source:
         # Count the minimum number of chunks we need to represent v.
@@ -205,8 +218,9 @@ def make_rle_image(rleFilename, image):
         im2 = PIL.Image.new('1', (w, h), 0)
         im2.paste(image, (0, 0))
         image = im2
-                            
+
     assert w <= 0xff and h <= 0xff
+    unscreened = unscreen(image)
 
     # The number of bytes in a row.  Must be a multiple of 4, per
     # Pebble conventions.
@@ -216,16 +230,23 @@ def make_rle_image(rleFilename, image):
     # Find the best n for this image.
     result = None
     n = None
-    for n0 in [1, 8]:
-        result0 = pack_rle(chop_rle(generate_rle(generate_pixels(image, stride)), n0), n0)
+    for n0 in [1, 0x81, 2, 4, 8]:
+        im = image
+        if n0 & 0x80:
+            im = unscreened
+        result0 = pack_rle(chop_rle(generate_rle(generate_pixels(im, stride)), n0 & 0x7f), n0 & 0x7f)
+        #print n0, len(result0)
         if result is None or len(result0) < len(result):
             result = result0
             n = n0
 
     # Verify the result matches.
-    unpacker = Rl2Unpacker(result, n)
+    im = image
+    if n & 0x80:
+        im = unscreened
+    unpacker = Rl2Unpacker(result, n & 0x7f)
     verify = unpacker.getList()
-    result0 = list(generate_rle(generate_pixels(image, stride)))
+    result0 = list(generate_rle(generate_pixels(im, stride)))
     assert verify == result0
 
     rle = open(rleFilename, 'wb')
@@ -235,14 +256,20 @@ def make_rle_image(rleFilename, image):
     
     print '%s: %s vs. %s' % (rleFilename, 4 + len(result), fullSize)
 
-def make_rle(filename):
-    image = PIL.Image.open(filename)
-    basename = os.path.splitext(filename)[0]
-    rleFilename = basename + '.rle'
-    make_rle_image(rleFilename, image)
+def make_rle(filename, useRle = True):
+    if useRle:
+        image = PIL.Image.open('resources/' + filename)
+        basename = os.path.splitext(filename)[0]
+        rleFilename = basename + '.rle'
+        make_rle_image('resources/' + rleFilename, image)
+        return rleFilename, 'raw'
+    else:
+        ptype = 'png'
+        print filename
+        return filename, 'png'
 
-def make_rle_trans(filename):
-    image = PIL.Image.open(filename)
+def make_rle_trans(filename, useRle = True):
+    image = PIL.Image.open('resources/' + filename)
     bits, alpha = image.convert('LA').split()
     bits = bits.convert('1')
     alpha = alpha.convert('1')
@@ -251,18 +278,26 @@ def make_rle_trans(filename):
     one = PIL.Image.new('1', image.size, 1)
 
     black = PIL.Image.composite(zero, one, bits)
-    black = PIL.Image.compose(zero, black, alpha)
-    white = PIL.Image.composite(zero, one, bits)
-    white = PIL.Image.compose(zero, white, alpha)
-    white.save('white.png')
-    black.save('black.png')
+    black = PIL.Image.composite(black, zero, alpha)
+    white = PIL.Image.composite(one, zero, bits)
+    white = PIL.Image.composite(white, zero, alpha)
     
-    #basename = os.path.splitext(filename)[0]
-    #rleFilename = basename + '_white.rle'
-    #make_rle_image(rleFilename, image)
-    #rleFilename = basename + '_black.rle'
-    #make_rle_image(rleFilename, image)
-    
+    if useRle:
+        basename = os.path.splitext(filename)[0]
+        rleWhiteFilename = basename + '_white.rle'
+        make_rle_image('resources/' + rleWhiteFilename, white)
+        rleBlackFilename = basename + '_black.rle'
+        make_rle_image('resources/' + rleBlackFilename, black)
+        
+        return rleWhiteFilename, rleBlackFilename, 'raw'
+    else:
+        basename = os.path.splitext(filename)[0]
+        rleWhiteFilename = basename + '_white.png'
+        white.save('resources/' + rleWhiteFilename)
+        rleBlackFilename = basename + '_black.png'
+        black.save('resources/' + rleBlackFilename)
+        print filename
+        return rleWhiteFilename, rleBlackFilename, 'png'
 
 if __name__ == '__main__':
     # Main.
@@ -282,6 +317,8 @@ if __name__ == '__main__':
 
     print args
     for filename in args:
+        if filename.startswith('resources/'):
+            filename = filename[10:]
         if makeTrans:
             make_rle_trans(filename)
         else:

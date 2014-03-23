@@ -385,7 +385,7 @@ void root_layer_update_callback(Layer *me, GContext* ctx) {
 }
 
 void face_layer_update_callback(Layer *me, GContext* ctx) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_layer");
+  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_layer");
   int ti = 0;
   
   if (face_transition) {
@@ -527,7 +527,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 }
   
 void minute_layer_update_callback(Layer *me, GContext* ctx) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "minute_layer");
+  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "minute_layer");
   GFont font;
   GRect box;
   static const int buffer_size = 128;
@@ -566,7 +566,7 @@ void second_layer_update_callback(Layer *me, GContext* ctx) {
 }
   
 void date_layer_update_callback(Layer *me, GContext* ctx) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "date_layer: %d", config.show_date);
+  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "date_layer: %d", config.show_date);
   if (config.show_date) {
     static const int buffer_size = 128;
     char buffer[buffer_size];
