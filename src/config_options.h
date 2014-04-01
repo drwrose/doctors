@@ -13,6 +13,7 @@ typedef enum {
   CK_hurt = 4,
   CK_show_date = 5,
   CK_display_lang = 6,
+  CK_bluetooth_buzzer = 7,
 } ConfigKey;
 
 // This key is used to record the persistent storage.
@@ -34,6 +35,7 @@ typedef struct {
   bool keep_bluetooth_indicator;
   bool second_hand;
   bool hour_buzzer;
+  bool bluetooth_buzzer;
   bool hurt;
   bool show_date;
   DisplayLanguages display_lang;

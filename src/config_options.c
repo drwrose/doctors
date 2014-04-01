@@ -12,6 +12,7 @@ void init_default_options() {
   config.keep_bluetooth_indicator = false;
   config.second_hand = false;
   config.hour_buzzer = false;
+  config.bluetooth_buzzer = true;
   config.hurt = true;
   config.show_date = false;
   config.display_lang = DL_english;
@@ -19,7 +20,7 @@ void init_default_options() {
 
 const char *show_config() {
   static char buffer[80];
-  snprintf(buffer, 80, "bat: %d, bt: %d, sh: %d, hb: %d, h: %d, sd: %d, dl: %d", config.keep_battery_gauge, config.keep_bluetooth_indicator, config.second_hand, config.hour_buzzer, config.hurt, config.show_date, config.display_lang);
+  snprintf(buffer, 80, "bat: %d, bt: %d, sh: %d, hb: %d, bb: %d, h: %d, sd: %d, dl: %d", config.keep_battery_gauge, config.keep_bluetooth_indicator, config.second_hand, config.hour_buzzer, config.bluetooth_buzzer, config.hurt, config.show_date, config.display_lang);
   return buffer;
 }
 
@@ -71,6 +72,11 @@ void receive_config_handler(DictionaryIterator *received, void *context) {
   Tuple *hour_buzzer = dict_find(received, CK_hour_buzzer);
   if (hour_buzzer != NULL) {
     config.hour_buzzer = hour_buzzer->value->int32;
+  }
+
+  Tuple *bluetooth_buzzer = dict_find(received, CK_bluetooth_buzzer);
+  if (bluetooth_buzzer != NULL) {
+    config.bluetooth_buzzer = bluetooth_buzzer->value->int32;
   }
 
   Tuple *hurt = dict_find(received, CK_hurt);

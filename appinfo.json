@@ -5,7 +5,7 @@
   "capabilities": [ "configurable" ],
   "companyName": "drwrose",
   "versionCode": 1,
-  "versionLabel": "2.5.0",
+  "versionLabel": "2.6.2",
   "watchapp": {
     "watchface": true
   },
@@ -16,7 +16,8 @@
     "hour_buzzer": 3,
     "hurt": 4,
     "show_date" : 5,
-    "display_lang" : 6
+    "display_lang" : 6,
+    "bluetooth_buzzer": 7
   },
   "resources": {
     "media": [

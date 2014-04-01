@@ -1,3 +1,9 @@
 
 # Ignore build generated files
 build
+
+*.pyc
+*~
+#*
+.DS_Store
+.lock-waf_*_build
