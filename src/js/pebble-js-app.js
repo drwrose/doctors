@@ -1,8 +1,8 @@
 // Define the initial config default values.  These defaults are used
 // only if the Pebble is connected to the phone at the time of launch;
 // otherwise, the defaults in init_default_options() are used instead.
-var default_keep_battery_gauge = 0;
-var default_keep_bluetooth_indicator = 0;
+var default_battery_gauge = 1;
+var default_bluetooth_indicator = 1;
 var default_second_hand = 0;
 var default_hour_buzzer = 0;
 var default_bluetooth_buzzer = 1;
@@ -10,8 +10,8 @@ var default_hurt = 1;
 var default_show_date = 0;
 var default_display_lang = 'en_US';
 
-var keep_battery_gauge;
-var keep_bluetooth_indicator;
+var battery_gauge;
+var bluetooth_indicator;
 var second_hand;
 var hour_buzzer;
 var bluetooth_buzzer;
@@ -69,8 +69,8 @@ function initialize() {
     }
 
     logLocalStorage();
-    keep_battery_gauge = getIntFromStorage('keep_battery_gauge', default_keep_battery_gauge);
-    keep_bluetooth_indicator = getIntFromStorage('keep_bluetooth_indicator', default_keep_bluetooth_indicator);
+    battery_gauge = getIntFromStorage('battery_gauge', default_battery_gauge);
+    bluetooth_indicator = getIntFromStorage('bluetooth_indicator', default_bluetooth_indicator);
     second_hand = getIntFromStorage('second_hand', default_second_hand);
     hour_buzzer = getIntFromStorage('hour_buzzer', default_hour_buzzer);
     bluetooth_buzzer = getIntFromStorage('bluetooth_buzzer', default_bluetooth_buzzer);
@@ -78,8 +78,8 @@ function initialize() {
     show_date = getIntFromStorage('show_date', default_show_date);
     display_lang = getStringFromStorage('display_lang', default_display_lang);
 
-    console.log("   keep_battery_gauge: " + keep_battery_gauge);
-    console.log("   keep_bluetooth_indicator: " + keep_bluetooth_indicator);
+    console.log("   battery_gauge: " + battery_gauge);
+    console.log("   bluetooth_indicator: " + bluetooth_indicator);
     console.log("   second_hand: " + second_hand);
     console.log("   hour_buzzer: " + hour_buzzer);
     console.log("   bluetooth_buzzer: " + bluetooth_buzzer);
@@ -93,8 +93,8 @@ function initialize() {
     // receiving messages.
     setTimeout(function() {
 	var configuration = {
-	    'keep_battery_gauge' : keep_battery_gauge,
-	    'keep_bluetooth_indicator' : keep_bluetooth_indicator,
+	    'battery_gauge' : battery_gauge,
+	    'bluetooth_indicator' : bluetooth_indicator,
 	    'second_hand' : second_hand,
 	    'hour_buzzer' : hour_buzzer,
 	    'bluetooth_buzzer' : bluetooth_buzzer,
@@ -117,7 +117,7 @@ Pebble.addEventListener("ready", function(e) {
 Pebble.addEventListener("showConfiguration", function(e) {
     console.log("showConfiguration starting");
     initialize();
-    var url = "http://www.ddrose.com/pebble/doctors_2_6_2_configure.html?keep_battery_gauge=" + keep_battery_gauge + "&keep_bluetooth_indicator=" + keep_bluetooth_indicator + "&second_hand=" + second_hand + "&hour_buzzer=" + hour_buzzer + "&bluetooth_buzzer=" + bluetooth_buzzer + "&hurt=" + hurt + "&show_date=" + show_date + "&display_lang=" + display_lang;
+    var url = "http://www.ddrose.com/pebble/doctors_2_7_configure.html?battery_gauge=" + battery_gauge + "&bluetooth_indicator=" + bluetooth_indicator + "&second_hand=" + second_hand + "&hour_buzzer=" + hour_buzzer + "&bluetooth_buzzer=" + bluetooth_buzzer + "&hurt=" + hurt + "&show_date=" + show_date + "&display_lang=" + display_lang;
     console.log("showConfiguration: " + url);
     var result = Pebble.openURL(url);
     console.log("openURL result: " + result);
@@ -133,11 +133,11 @@ Pebble.addEventListener("webviewclosed", function(e) {
   	console.log("sending runtime config: " + JSON.stringify(configuration));
 	Pebble.sendAppMessage(configuration, sent_ack, sent_nack);
 	
-	keep_battery_gauge = configuration["keep_battery_gauge"];
-	localStorage.setItem("doctors:keep_battery_gauge", keep_battery_gauge);
+	battery_gauge = configuration["battery_gauge"];
+	localStorage.setItem("doctors:battery_gauge", battery_gauge);
 	
-	keep_bluetooth_indicator = configuration["keep_bluetooth_indicator"];
-	localStorage.setItem("doctors:keep_bluetooth_indicator", keep_bluetooth_indicator);
+	bluetooth_indicator = configuration["bluetooth_indicator"];
+	localStorage.setItem("doctors:bluetooth_indicator", bluetooth_indicator);
 	
 	second_hand = configuration["second_hand"];
 	localStorage.setItem("doctors:second_hand", second_hand);

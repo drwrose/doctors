@@ -8,19 +8,31 @@ void init_default_options() {
   // that these defaults are used only if the Pebble is not connected
   // to the phone at the time of launch; otherwise, the defaults in
   // pebble-js-app.js are used instead.
-  config.keep_battery_gauge = false;
-  config.keep_bluetooth_indicator = false;
-  config.second_hand = false;
-  config.hour_buzzer = false;
-  config.bluetooth_buzzer = true;
-  config.hurt = true;
-  config.show_date = false;
-  config.display_lang = DL_english;
+  static ConfigOptions default_options = {
+    IM_when_needed,   // battery_gauge
+    IM_when_needed,   // bluetooth_indicator
+    false,            // second_hand
+    false,            // hour_buzzer
+    true,             // bluetooth_buzzer
+    true,             // hurt
+    false,            // show_date
+    DL_english,       // display_lang
+  };
+  
+  config = default_options;
+}
+
+void sanitize_config() {
+  // Ensures that the newly-loaded config parameters are within a
+  // reasonable range for the program and won't cause crashes.
+  config.battery_gauge = config.battery_gauge % (IM_digital + 1);
+  config.bluetooth_indicator = config.bluetooth_indicator % (IM_always + 1);
+  config.display_lang = config.display_lang % (DL_num_languages);
 }
 
 const char *show_config() {
   static char buffer[80];
-  snprintf(buffer, 80, "bat: %d, bt: %d, sh: %d, hb: %d, bb: %d, h: %d, sd: %d, dl: %d", config.keep_battery_gauge, config.keep_bluetooth_indicator, config.second_hand, config.hour_buzzer, config.bluetooth_buzzer, config.hurt, config.show_date, config.display_lang);
+  snprintf(buffer, 80, "bat: %d, bt: %d, sh: %d, hb: %d, bb: %d, h: %d, sd: %d, dl: %d", config.battery_gauge, config.bluetooth_indicator, config.second_hand, config.hour_buzzer, config.bluetooth_buzzer, config.hurt, config.show_date, config.display_lang);
   return buffer;
 }
 
@@ -44,24 +56,26 @@ void load_config() {
   } else {
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "No previous config (%d, %d): %d", PERSIST_KEY, sizeof(config), read_size);
   }
+
+  sanitize_config();
 }
 
 void dropped_config_handler(AppMessageResult reason, void *context) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "dropped message: %d", reason);
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "dropped message: 0x%04x", reason);
 }
 
 void receive_config_handler(DictionaryIterator *received, void *context) {
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "receive_config_handler");
   ConfigOptions orig_config = config;
 
-  Tuple *keep_battery_gauge = dict_find(received, CK_keep_battery_gauge);
-  if (keep_battery_gauge != NULL) {
-    config.keep_battery_gauge = keep_battery_gauge->value->int32;
+  Tuple *battery_gauge = dict_find(received, CK_battery_gauge);
+  if (battery_gauge != NULL) {
+    config.battery_gauge = (IndicatorMode)battery_gauge->value->int32;
   }
 
-  Tuple *keep_bluetooth_indicator = dict_find(received, CK_keep_bluetooth_indicator);
-  if (keep_bluetooth_indicator != NULL) {
-    config.keep_bluetooth_indicator = keep_bluetooth_indicator->value->int32;
+  Tuple *bluetooth_indicator = dict_find(received, CK_bluetooth_indicator);
+  if (bluetooth_indicator != NULL) {
+    config.bluetooth_indicator = (IndicatorMode)bluetooth_indicator->value->int32;
   }
 
   Tuple *second_hand = dict_find(received, CK_second_hand);
@@ -99,6 +113,8 @@ void receive_config_handler(DictionaryIterator *received, void *context) {
       }
     }
   }
+
+  sanitize_config();
 
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "New config: %s", show_config());
   if (memcmp(&orig_config, &config, sizeof(config)) == 0) {

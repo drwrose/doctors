@@ -6,8 +6,8 @@
 // These keys are used to communicate with Javascript.  They match
 // similar names in appinfo.json.
 typedef enum {
-  CK_keep_battery_gauge = 0,
-  CK_keep_bluetooth_indicator = 1,
+  CK_battery_gauge = 0,
+  CK_bluetooth_indicator = 1,
   CK_second_hand = 2,
   CK_hour_buzzer = 3,
   CK_hurt = 4,
@@ -18,6 +18,13 @@ typedef enum {
 
 // This key is used to record the persistent storage.
 #define PERSIST_KEY 0x5150
+
+typedef enum {
+  IM_off = 0,
+  IM_when_needed = 1,
+  IM_always = 2,
+  IM_digital = 3,
+} IndicatorMode;
 
 typedef enum {
   DL_english,
@@ -31,8 +38,8 @@ typedef enum {
 } DisplayLanguages;
 
 typedef struct {
-  bool keep_battery_gauge;
-  bool keep_bluetooth_indicator;
+  IndicatorMode battery_gauge;
+  IndicatorMode bluetooth_indicator;
   bool second_hand;
   bool hour_buzzer;
   bool bluetooth_buzzer;
