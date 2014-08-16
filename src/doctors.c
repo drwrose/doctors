@@ -40,6 +40,7 @@ Layer *face_layer;   // The "face", in both senses (and also the hour indicator)
 Layer *minute_layer; // The minutes indicator.
 Layer *second_layer; // The seconds indicator (a blinking colon).
 
+Layer *hour_layer; // optional hour display.
 Layer *date_layer; // optional day/date display.
 
 int face_value;       // The current face on display (or transitioning into)
@@ -65,12 +66,13 @@ AppTimer *anim_timer = NULL;
 // Triggered at 500 ms intervals to blink the colon.
 AppTimer *blink_timer = NULL;
 
+int hour_value;      // The decimal hour value displayed (if enabled).
 int minute_value;    // The current minute value displayed
 int second_value;    // The current second value displayed.  Actually we only blink the colon, rather than actually display a value, but whatever.
 bool hide_colon;     // Set true every half-second to blink the colon off.
 int last_buzz_hour;  // The hour at which we last sounded the buzzer.
-int day_value;       // The current day-of-the-week displayed (if any).
-int date_value;      // The current date-of-the-week displayed (if any).
+int day_value;       // The current day-of-the-week displayed (if enabled).
+int date_value;      // The current date-of-the-week displayed (if enabled).
 
 int face_resource_ids[13] = {
   RESOURCE_ID_TWELVE,
@@ -461,6 +463,37 @@ void minute_layer_update_callback(Layer *me, GContext* ctx) {
                      NULL);
 }
   
+void hour_layer_update_callback(Layer *me, GContext* ctx) {
+  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "hour_layer");
+  GFont font;
+  GRect box;
+  static const int buffer_size = 128;
+  char buffer[buffer_size];
+
+  if (true) { //config.show_hour) {
+    box = layer_get_frame(me);
+    box.origin.x = 0;
+    box.origin.y = 3;
+
+    // Extend the background card to make room for the hours digits.
+    graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, box);
+
+    // Draw the hours digits.
+    font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
+
+    box.origin.x = -15;
+    box.origin.y = 0;
+    
+    graphics_context_set_text_color(ctx, GColorBlack);
+    
+    snprintf(buffer, buffer_size, "%d", (hour_value ? hour_value : 12));
+    graphics_draw_text(ctx, buffer, font, box,
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight,
+                       NULL);
+  }
+}
+  
 void second_layer_update_callback(Layer *me, GContext* ctx) {
   if (!config.second_hand || !hide_colon) {
     GFont font;
@@ -513,9 +546,9 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
     return;
   }
 
-  int face_new, minute_new, second_new, day_new, date_new;
+  int face_new, hour_new, minute_new, second_new, day_new, date_new;
 
-  face_new = tick_time->tm_hour % 12;
+  hour_new = face_new = tick_time->tm_hour % 12;
   minute_new = tick_time->tm_min;
   second_new = tick_time->tm_sec;
   if (config.hurt && face_new == 8 && minute_new >= 30) {
@@ -526,14 +559,26 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
   date_new = tick_time->tm_mday;
 #ifdef FAST_TIME
   if (config.hurt) {
-    face_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 5) % 13;
+    int double_face = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 3) % 24;
+    hour_new = double_face / 2;
+    if (double_face == 17) {
+      face_new = 12;
+    } else {
+      face_new = double_face / 2;
+    }
   } else {
-    face_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 5) % 12;
+    hour_new = face_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 6) % 12;
   }
   minute_new = tick_time->tm_sec;
   day_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 4) % 7;
   date_new = (tick_time->tm_min * 60 + tick_time->tm_sec) % 31 + 1;
 #endif
+
+  if (hour_new != hour_value) {
+    // Update the hour display.
+    hour_value = hour_new;
+    layer_mark_dirty(hour_layer);
+  }
 
   if (minute_new != minute_value) {
     // Update the minute display.
@@ -558,7 +603,7 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
     }
   }
 
-  if (config.show_date && (day_new != day_value || date_new != date_value)) {
+  if (day_new != day_value || date_new != date_value) {
     // Update the day/date display.
     day_value = day_new;
     date_value = date_new;
@@ -644,6 +689,10 @@ void handle_init() {
   face_layer = layer_create(layer_get_bounds(root_layer));
   layer_set_update_proc(face_layer, &face_layer_update_callback);
   layer_add_child(root_layer, face_layer);
+
+  hour_layer = layer_create(GRect(60, 134, 50, 35));
+  layer_set_update_proc(hour_layer, &hour_layer_update_callback);
+  layer_add_child(root_layer, hour_layer);
 
   minute_layer = layer_create(GRect(95, 134, 62, 35));
   layer_set_update_proc(minute_layer, &minute_layer_update_callback);
