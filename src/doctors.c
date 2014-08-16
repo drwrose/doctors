@@ -11,10 +11,6 @@
 // in a timely fashion.
 //#define FAST_TIME 1
 
-// Define this to enable the FB-grabbing hack, which might break at
-// the next SDK update.  (In fact, it *is* broken as of SDK 2.0.)
-//#define FB_HACK 1
-
 // Define this to limit the set of sprites to just the Tardis (to
 // reduce resource size).  You also need to remove the other sprites
 // from the resource file, of course.
@@ -40,12 +36,6 @@ Window *window;
 
 BitmapWithData mins_background;
 BitmapWithData date_background;
-
-#ifdef FB_HACK
-// The previous framebuffer data.
-BitmapWithData fb_image;
-bool first_update = true;
-#endif  // FB_HACK
 
 // The horizontal center point of the sprite.
 int sprite_cx = 0;
@@ -241,44 +231,6 @@ void set_next_timer() {
   }
 }
 
-#ifdef FB_HACK
-// Hack alert!  This is an opaque data structure, but we're looking
-// inside it anyway.  Idea taken from
-// http://memention.com/blog/2013/07/20/Yak-shaving-a-Pebble.html .
-struct GContext {
-  uint8_t *framebuffer;
-};
-
-// Initializes the indicated GBitmap with a copy of the current
-// framebuffer data.  Hacky!  Free it later with bwd_destroy().
-BitmapWithData
-fb_bwd_create(struct GContext *ctx) {
-  int width = SCREEN_WIDTH;
-  int height = SCREEN_HEIGHT;
-  int stride = ((width + 31) / 32) * 4;
-
-  size_t data_size = height * stride;
-  size_t total_size = sizeof(BitmapDataHeader) + data_size;
-  uint8_t *bitmap = (uint8_t *)malloc(total_size);
-  assert(bitmap != NULL);
-  memset(bitmap, 0, total_size);
-  BitmapDataHeader *bitmap_header = (BitmapDataHeader *)bitmap;
-  uint8_t *bitmap_data = bitmap + sizeof(BitmapDataHeader);
-  bitmap_header->row_size_bytes = stride;
-  bitmap_header->size_w = width;
-  bitmap_header->size_h = height;
-
-  // This doesn't appear to be working yet.  Not sure where I should
-  // be finding this data.
-  uint8_t *framebuffer = ctx->framebuffer;
-  memcpy(bitmap_data, framebuffer, stride * height);
-
-  GBitmap *image = gbitmap_create_with_data(bitmap);
-  return bwd_create(image, bitmap);
-}
-#endif  // FB_HACK
-
-
 void stop_transition() {
   face_transition = false;
 
@@ -286,10 +238,6 @@ void stop_transition() {
   bwd_destroy(&prev_image);
   bwd_destroy(&sprite_mask);
   bwd_destroy(&sprite);
-
-#ifdef FB_HACK
-  bwd_destroy(&fb_image);
-#endif  // FB_HACK
 
   // Stop the transition timer.
   if (anim_timer != NULL) {
@@ -375,15 +323,6 @@ void start_transition(int face_new, bool for_startup) {
   set_next_timer();
 }
 
-void root_layer_update_callback(Layer *me, GContext* ctx) {
-#ifdef FB_HACK
-  if (fb_image.bitmap == NULL && first_update) {
-    first_update = false;
-    fb_image = fb_bwd_create(ctx);
-  }
-#endif
-}
-
 void face_layer_update_callback(Layer *me, GContext* ctx) {
   //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_layer");
   int ti = 0;
@@ -428,14 +367,6 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     GRect destination = layer_get_frame(me);
     destination.origin.x = 0;
     destination.origin.y = 0;
-
-#ifdef FB_HACK
-    if (fb_image.bitmap != NULL && prev_image.bitmap == NULL) {
-      prev_image = fb_image;
-      fb_image.bitmap = NULL;
-      fb_image.data = NULL;
-    }
-#endif  // FB_HACK
     
     if (wipe_direction) {
       // First, draw the previous face.
@@ -715,7 +646,6 @@ void handle_init() {
   // GColorClear doesn't seem to work: it is the same as GColorWhite in this context.
   window_set_background_color(window, GColorClear);
   struct Layer *root_layer = window_get_root_layer(window);
-  layer_set_update_proc(root_layer, &root_layer_update_callback);
 
   // We'd like to pass false in an attempt to not use the window
   // animation, since we'll be animating the TARDIS transition
