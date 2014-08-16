@@ -11,11 +11,6 @@
 // in a timely fashion.
 //#define FAST_TIME 1
 
-// Define this to limit the set of sprites to just the Tardis (to
-// reduce resource size).  You also need to remove the other sprites
-// from the resource file, of course.
-//#define TARDIS_ONLY 1
-
 #define SCREEN_WIDTH 144
 #define SCREEN_HEIGHT 168
 
@@ -93,20 +88,10 @@ int face_resource_ids[13] = {
   RESOURCE_ID_HURT,
 };
 
-#ifdef TARDIS_ONLY
-
-#define SPRITE_TARDIS 0
-#define NUM_SPRITES   1
-
-#else
-
 #define SPRITE_TARDIS 0
 #define SPRITE_K9     1
 #define SPRITE_DALEK  2
 #define NUM_SPRITES   3
-
-#endif  // TARDIS_ONLY
-
 
 typedef struct {
   int tardis;
@@ -291,7 +276,6 @@ void start_transition(int face_new, bool for_startup) {
     sprite_cx = 72;
     break;
 
-#ifndef TARDIS_ONLY
   case SPRITE_K9:
     sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
     sprite = rle_bwd_create(RESOURCE_ID_K9);
@@ -315,7 +299,6 @@ void start_transition(int face_new, bool for_startup) {
       sprite_cx = sprite.bitmap->bounds.size.w - sprite_cx;
     }
     break;
-#endif  // TARDIS_ONLY
   }
 
   // Start the transition timer.
