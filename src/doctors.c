@@ -664,6 +664,7 @@ void handle_init() {
   face_transition = false;
   face_value = -1;
   last_buzz_hour = -1;
+  hour_value = startup_time->tm_hour % 12;
   minute_value = startup_time->tm_min;
   second_value = startup_time->tm_sec;
   day_value = startup_time->tm_wday;
