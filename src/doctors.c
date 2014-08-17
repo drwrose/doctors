@@ -470,7 +470,7 @@ void hour_layer_update_callback(Layer *me, GContext* ctx) {
   static const int buffer_size = 128;
   char buffer[buffer_size];
 
-  if (true) { //config.show_hour) {
+  if (config.show_hour) {
     box = layer_get_frame(me);
     box.origin.x = 0;
     box.origin.y = 3;

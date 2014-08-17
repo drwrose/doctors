@@ -17,7 +17,8 @@
     "hurt": 4,
     "show_date" : 5,
     "display_lang" : 6,
-    "bluetooth_buzzer": 7
+    "bluetooth_buzzer": 7,
+    "show_hour" : 8
   },
   "resources": {
     "media": [

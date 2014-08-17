@@ -16,6 +16,7 @@ void init_default_options() {
     true,             // bluetooth_buzzer
     true,             // hurt
     false,            // show_date
+    false,            // show_hour
     DL_english,       // display_lang
   };
   
@@ -32,7 +33,7 @@ void sanitize_config() {
 
 const char *show_config() {
   static char buffer[80];
-  snprintf(buffer, 80, "bat: %d, bt: %d, sh: %d, hb: %d, bb: %d, h: %d, sd: %d, dl: %d", config.battery_gauge, config.bluetooth_indicator, config.second_hand, config.hour_buzzer, config.bluetooth_buzzer, config.hurt, config.show_date, config.display_lang);
+  snprintf(buffer, 80, "bat: %d, bt: %d, sh: %d, hb: %d, bb: %d, h: %d, sd: %d, sh: %d, dl: %d", config.battery_gauge, config.bluetooth_indicator, config.second_hand, config.hour_buzzer, config.bluetooth_buzzer, config.hurt, config.show_date, config.show_hour, config.display_lang);
   return buffer;
 }
 
@@ -101,6 +102,11 @@ void receive_config_handler(DictionaryIterator *received, void *context) {
   Tuple *show_date = dict_find(received, CK_show_date);
   if (show_date != NULL) {
     config.show_date = show_date->value->int32;
+  }
+
+  Tuple *show_hour = dict_find(received, CK_show_hour);
+  if (show_hour != NULL) {
+    config.show_hour = show_hour->value->int32;
   }
 
   Tuple *display_lang = dict_find(received, CK_display_lang);
