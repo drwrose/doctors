@@ -451,7 +451,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
       
       if (wipe_x > 0) {
         // Then, draw the new face on top of it, reducing the size to wipe
-        // from right to left.
+        // from left to right.
         if (face_image.bitmap != NULL) {
           destination.size.w = wipe_x;
           graphics_draw_bitmap_in_rect(ctx, face_image.bitmap, destination);

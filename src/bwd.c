@@ -89,7 +89,8 @@ static void rbuffer_init(int resource_id, RBuffer *rb) {
 // Gets the next byte from the rbuffer.  Returns EOF at end.
 static int rbuffer_getc(RBuffer *rb) {
   if (rb->_i >= RBUFFER_SIZE) {
-    rb->_filled_size = resource_load_byte_range(rb->_rh, rb->_bytes_read, rb->_buffer, RBUFFER_SIZE);
+    ssize_t bytes_read = resource_load_byte_range(rb->_rh, rb->_bytes_read, rb->_buffer, RBUFFER_SIZE);
+    rb->_filled_size = (bytes_read < 0) ? 0 : (size_t)bytes_read;
     rb->_bytes_read += rb->_filled_size;
     rb->_i = 0;
   }
@@ -225,6 +226,10 @@ rle_bwd_create(int resource_id) {
   size_t data_size = height * stride;
   size_t total_size = sizeof(BitmapDataHeader) + data_size;
   uint8_t *bitmap = (uint8_t *)malloc(total_size);
+  if (bitmap == NULL) {
+    return bwd_create(NULL, NULL);
+  }
+
   assert(bitmap != NULL);
   memset(bitmap, 0, total_size);
   BitmapDataHeader *bitmap_header = (BitmapDataHeader *)bitmap;
