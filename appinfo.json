@@ -5,7 +5,7 @@
   "capabilities": [ "configurable" ],
   "companyName": "drwrose",
   "versionCode": 1,
-  "versionLabel": "2.7",
+  "versionLabel": "2.8",
   "watchapp": {
     "watchface": true
   },
@@ -17,7 +17,8 @@
     "hurt": 4,
     "show_date" : 5,
     "display_lang" : 6,
-    "bluetooth_buzzer": 7
+    "bluetooth_buzzer": 7,
+    "show_hour" : 8
   },
   "resources": {
     "media": [
@@ -35,6 +36,11 @@
     {
       "name": "BATTERY_GAUGE_CHARGING",
       "file": "battery_gauge_charging.png",
+      "type": "png"
+    },
+    {
+      "name": "BATTERY_GAUGE_CHARGED",
+      "file": "battery_gauge_charged.png",
       "type": "png"
     },
     {

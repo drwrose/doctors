@@ -14,6 +14,7 @@ typedef enum {
   CK_show_date = 5,
   CK_display_lang = 6,
   CK_bluetooth_buzzer = 7,
+  CK_show_hour = 8,
 } ConfigKey;
 
 // This key is used to record the persistent storage.
@@ -45,6 +46,7 @@ typedef struct {
   bool bluetooth_buzzer;
   bool hurt;
   bool show_date;
+  bool show_hour;
   DisplayLanguages display_lang;
 } __attribute__((__packed__)) ConfigOptions;
 

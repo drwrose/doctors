@@ -11,15 +11,6 @@
 // in a timely fashion.
 //#define FAST_TIME 1
 
-// Define this to enable the FB-grabbing hack, which might break at
-// the next SDK update.  (In fact, it *is* broken as of SDK 2.0.)
-//#define FB_HACK 1
-
-// Define this to limit the set of sprites to just the Tardis (to
-// reduce resource size).  You also need to remove the other sprites
-// from the resource file, of course.
-//#define TARDIS_ONLY 1
-
 #define SCREEN_WIDTH 144
 #define SCREEN_HEIGHT 168
 
@@ -41,12 +32,6 @@ Window *window;
 BitmapWithData mins_background;
 BitmapWithData date_background;
 
-#ifdef FB_HACK
-// The previous framebuffer data.
-BitmapWithData fb_image;
-bool first_update = true;
-#endif  // FB_HACK
-
 // The horizontal center point of the sprite.
 int sprite_cx = 0;
 
@@ -55,6 +40,7 @@ Layer *face_layer;   // The "face", in both senses (and also the hour indicator)
 Layer *minute_layer; // The minutes indicator.
 Layer *second_layer; // The seconds indicator (a blinking colon).
 
+Layer *hour_layer; // optional hour display.
 Layer *date_layer; // optional day/date display.
 
 int face_value;       // The current face on display (or transitioning into)
@@ -80,12 +66,13 @@ AppTimer *anim_timer = NULL;
 // Triggered at 500 ms intervals to blink the colon.
 AppTimer *blink_timer = NULL;
 
+int hour_value;      // The decimal hour value displayed (if enabled).
 int minute_value;    // The current minute value displayed
 int second_value;    // The current second value displayed.  Actually we only blink the colon, rather than actually display a value, but whatever.
 bool hide_colon;     // Set true every half-second to blink the colon off.
 int last_buzz_hour;  // The hour at which we last sounded the buzzer.
-int day_value;       // The current day-of-the-week displayed (if any).
-int date_value;      // The current date-of-the-week displayed (if any).
+int day_value;       // The current day-of-the-week displayed (if enabled).
+int date_value;      // The current date-of-the-week displayed (if enabled).
 
 int face_resource_ids[13] = {
   RESOURCE_ID_TWELVE,
@@ -103,20 +90,10 @@ int face_resource_ids[13] = {
   RESOURCE_ID_HURT,
 };
 
-#ifdef TARDIS_ONLY
-
-#define SPRITE_TARDIS 0
-#define NUM_SPRITES   1
-
-#else
-
 #define SPRITE_TARDIS 0
 #define SPRITE_K9     1
 #define SPRITE_DALEK  2
 #define NUM_SPRITES   3
-
-#endif  // TARDIS_ONLY
-
 
 typedef struct {
   int tardis;
@@ -241,44 +218,6 @@ void set_next_timer() {
   }
 }
 
-#ifdef FB_HACK
-// Hack alert!  This is an opaque data structure, but we're looking
-// inside it anyway.  Idea taken from
-// http://memention.com/blog/2013/07/20/Yak-shaving-a-Pebble.html .
-struct GContext {
-  uint8_t *framebuffer;
-};
-
-// Initializes the indicated GBitmap with a copy of the current
-// framebuffer data.  Hacky!  Free it later with bwd_destroy().
-BitmapWithData
-fb_bwd_create(struct GContext *ctx) {
-  int width = SCREEN_WIDTH;
-  int height = SCREEN_HEIGHT;
-  int stride = ((width + 31) / 32) * 4;
-
-  size_t data_size = height * stride;
-  size_t total_size = sizeof(BitmapDataHeader) + data_size;
-  uint8_t *bitmap = (uint8_t *)malloc(total_size);
-  assert(bitmap != NULL);
-  memset(bitmap, 0, total_size);
-  BitmapDataHeader *bitmap_header = (BitmapDataHeader *)bitmap;
-  uint8_t *bitmap_data = bitmap + sizeof(BitmapDataHeader);
-  bitmap_header->row_size_bytes = stride;
-  bitmap_header->size_w = width;
-  bitmap_header->size_h = height;
-
-  // This doesn't appear to be working yet.  Not sure where I should
-  // be finding this data.
-  uint8_t *framebuffer = ctx->framebuffer;
-  memcpy(bitmap_data, framebuffer, stride * height);
-
-  GBitmap *image = gbitmap_create_with_data(bitmap);
-  return bwd_create(image, bitmap);
-}
-#endif  // FB_HACK
-
-
 void stop_transition() {
   face_transition = false;
 
@@ -286,10 +225,6 @@ void stop_transition() {
   bwd_destroy(&prev_image);
   bwd_destroy(&sprite_mask);
   bwd_destroy(&sprite);
-
-#ifdef FB_HACK
-  bwd_destroy(&fb_image);
-#endif  // FB_HACK
 
   // Stop the transition timer.
   if (anim_timer != NULL) {
@@ -343,7 +278,6 @@ void start_transition(int face_new, bool for_startup) {
     sprite_cx = 72;
     break;
 
-#ifndef TARDIS_ONLY
   case SPRITE_K9:
     sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
     sprite = rle_bwd_create(RESOURCE_ID_K9);
@@ -367,21 +301,11 @@ void start_transition(int face_new, bool for_startup) {
       sprite_cx = sprite.bitmap->bounds.size.w - sprite_cx;
     }
     break;
-#endif  // TARDIS_ONLY
   }
 
   // Start the transition timer.
   layer_mark_dirty(face_layer);
   set_next_timer();
-}
-
-void root_layer_update_callback(Layer *me, GContext* ctx) {
-#ifdef FB_HACK
-  if (fb_image.bitmap == NULL && first_update) {
-    first_update = false;
-    fb_image = fb_bwd_create(ctx);
-  }
-#endif
 }
 
 void face_layer_update_callback(Layer *me, GContext* ctx) {
@@ -428,14 +352,6 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     GRect destination = layer_get_frame(me);
     destination.origin.x = 0;
     destination.origin.y = 0;
-
-#ifdef FB_HACK
-    if (fb_image.bitmap != NULL && prev_image.bitmap == NULL) {
-      prev_image = fb_image;
-      fb_image.bitmap = NULL;
-      fb_image.data = NULL;
-    }
-#endif  // FB_HACK
     
     if (wipe_direction) {
       // First, draw the previous face.
@@ -547,6 +463,37 @@ void minute_layer_update_callback(Layer *me, GContext* ctx) {
                      NULL);
 }
   
+void hour_layer_update_callback(Layer *me, GContext* ctx) {
+  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "hour_layer");
+  GFont font;
+  GRect box;
+  static const int buffer_size = 128;
+  char buffer[buffer_size];
+
+  if (config.show_hour) {
+    box = layer_get_frame(me);
+    box.origin.x = 0;
+    box.origin.y = 3;
+
+    // Extend the background card to make room for the hours digits.
+    graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, box);
+
+    // Draw the hours digits.
+    font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
+
+    box.origin.x = -15;
+    box.origin.y = 0;
+    
+    graphics_context_set_text_color(ctx, GColorBlack);
+    
+    snprintf(buffer, buffer_size, "%d", (hour_value ? hour_value : 12));
+    graphics_draw_text(ctx, buffer, font, box,
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight,
+                       NULL);
+  }
+}
+  
 void second_layer_update_callback(Layer *me, GContext* ctx) {
   if (!config.second_hand || !hide_colon) {
     GFont font;
@@ -599,9 +546,9 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
     return;
   }
 
-  int face_new, minute_new, second_new, day_new, date_new;
+  int face_new, hour_new, minute_new, second_new, day_new, date_new;
 
-  face_new = tick_time->tm_hour % 12;
+  hour_new = face_new = tick_time->tm_hour % 12;
   minute_new = tick_time->tm_min;
   second_new = tick_time->tm_sec;
   if (config.hurt && face_new == 8 && minute_new >= 30) {
@@ -612,14 +559,26 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
   date_new = tick_time->tm_mday;
 #ifdef FAST_TIME
   if (config.hurt) {
-    face_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 5) % 13;
+    int double_face = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 3) % 24;
+    hour_new = double_face / 2;
+    if (double_face == 17) {
+      face_new = 12;
+    } else {
+      face_new = double_face / 2;
+    }
   } else {
-    face_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 5) % 12;
+    hour_new = face_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 6) % 12;
   }
   minute_new = tick_time->tm_sec;
   day_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 4) % 7;
   date_new = (tick_time->tm_min * 60 + tick_time->tm_sec) % 31 + 1;
 #endif
+
+  if (hour_new != hour_value) {
+    // Update the hour display.
+    hour_value = hour_new;
+    layer_mark_dirty(hour_layer);
+  }
 
   if (minute_new != minute_value) {
     // Update the minute display.
@@ -644,7 +603,7 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
     }
   }
 
-  if (config.show_date && (day_new != day_value || date_new != date_value)) {
+  if (day_new != day_value || date_new != date_value) {
     // Update the day/date display.
     day_value = day_new;
     date_value = date_new;
@@ -705,6 +664,7 @@ void handle_init() {
   face_transition = false;
   face_value = -1;
   last_buzz_hour = -1;
+  hour_value = startup_time->tm_hour % 12;
   minute_value = startup_time->tm_min;
   second_value = startup_time->tm_sec;
   day_value = startup_time->tm_wday;
@@ -715,7 +675,6 @@ void handle_init() {
   // GColorClear doesn't seem to work: it is the same as GColorWhite in this context.
   window_set_background_color(window, GColorClear);
   struct Layer *root_layer = window_get_root_layer(window);
-  layer_set_update_proc(root_layer, &root_layer_update_callback);
 
   // We'd like to pass false in an attempt to not use the window
   // animation, since we'll be animating the TARDIS transition
@@ -731,6 +690,10 @@ void handle_init() {
   face_layer = layer_create(layer_get_bounds(root_layer));
   layer_set_update_proc(face_layer, &face_layer_update_callback);
   layer_add_child(root_layer, face_layer);
+
+  hour_layer = layer_create(GRect(60, 134, 50, 35));
+  layer_set_update_proc(hour_layer, &hour_layer_update_callback);
+  layer_add_child(root_layer, hour_layer);
 
   minute_layer = layer_create(GRect(95, 134, 62, 35));
   layer_set_update_proc(minute_layer, &minute_layer_update_callback);
