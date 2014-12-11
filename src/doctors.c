@@ -672,14 +672,9 @@ void handle_init() {
   hide_colon = false;
   
   window = window_create();
-  // GColorClear doesn't seem to work: it is the same as GColorWhite in this context.
-  window_set_background_color(window, GColorClear);
+  window_set_background_color(window, GColorWhite);
   struct Layer *root_layer = window_get_root_layer(window);
 
-  // We'd like to pass false in an attempt to not use the window
-  // animation, since we'll be animating the TARDIS transition
-  // ourselves.  But this doesn't appear to work--it's always animated
-  // anyway.  So whatever.
   window_stack_push(window, true);
 
   mins_background = rle_bwd_create(RESOURCE_ID_MINS_BACKGROUND);
