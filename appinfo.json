@@ -5,7 +5,7 @@
   "capabilities": [ "configurable" ],
   "companyName": "drwrose",
   "versionCode": 1,
-  "versionLabel": "2.12",
+  "versionLabel": "2.13",
   "watchapp": {
     "watchface": true
   },
@@ -69,69 +69,69 @@
       "type": "png"
     },
       {
-        "type": "raw",
+        "type": "png",
         "name": "ONE",
-        "file": "one.rle"
+        "file": "one.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "TWO",
-        "file": "two.rle"
+        "file": "two.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "THREE",
-        "file": "three.rle"
+        "file": "three.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "FOUR",
-        "file": "four.rle"
+        "file": "four.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "FIVE",
-        "file": "five.rle"
+        "file": "five.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "SIX",
-        "file": "six.rle"
+        "file": "six.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "SEVEN",
-        "file": "seven.rle"
+        "file": "seven.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "EIGHT",
-        "file": "eight.rle"
+        "file": "eight.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "NINE",
-        "file": "nine.rle"
+        "file": "nine.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "TEN",
-        "file": "ten.rle"
+        "file": "ten.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "ELEVEN",
-        "file": "eleven.rle"
+        "file": "eleven.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "TWELVE",
-        "file": "twelve.rle"
+        "file": "twelve.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "HURT",
-        "file": "hurt.rle"
+        "file": "hurt.png"
       },
       {
         "type": "png",
@@ -154,39 +154,39 @@
         "file": "tardis_04.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "TARDIS_MASK",
-        "file": "tardis_masks.rle"
+        "file": "tardis_masks.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "K9",
-        "file": "k9.rle"
+        "file": "k9.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "K9_MASK",
-        "file": "k9_mask.rle"
+        "file": "k9_mask.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "DALEK",
-        "file": "dalek.rle"
+        "file": "dalek.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "DALEK_MASK",
-        "file": "dalek_mask.rle"
+        "file": "dalek_mask.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "MINS_BACKGROUND",
-        "file": "mins_background.rle"
+        "file": "mins_background.png"
       },
       {
-        "type": "raw",
+        "type": "png",
         "name": "DATE_BACKGROUND",
-        "file": "date_background.rle"
+        "file": "date_background.png"
       }
     ]
   }
