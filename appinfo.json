@@ -2,10 +2,17 @@
   "uuid": "221ea62f-e2d0-4725-97c3-7fb3a2af4c0c",
   "shortName": "12 Doctors",
   "longName": "12 Doctors",
-  "capabilities": [ "configurable" ],
+  "capabilities": [
+    "configurable"
+  ],
   "companyName": "drwrose",
   "versionCode": 1,
   "versionLabel": "2.15",
+  "sdkVersion": "3",
+  "targetPlatforms": [
+    "aplite",
+    "basalt"
+  ],
   "watchapp": {
     "watchface": true
   },
@@ -15,10 +22,10 @@
     "second_hand": 2,
     "hour_buzzer": 3,
     "hurt": 4,
-    "show_date" : 5,
-    "display_lang" : 6,
+    "show_date": 5,
+    "display_lang": 6,
     "bluetooth_buzzer": 7,
-    "show_hour" : 8
+    "show_hour": 8
   },
   "resources": {
     "media": [
@@ -28,46 +35,46 @@
         "name": "APP_ICON",
         "file": "app_icon.png"
       },
-    {
-      "name": "BATTERY_GAUGE_EMPTY",
-      "file": "battery_gauge_empty.png",
-      "type": "png"
-    },
-    {
-      "name": "BATTERY_GAUGE_CHARGED",
-      "file": "battery_gauge_charged.png",
-      "type": "png"
-    },
-    {
-      "name": "BATTERY_GAUGE_MASK",
-      "file": "battery_gauge_mask.png",
-      "type": "png"
-    },
-    {
-      "name": "CHARGING",
-      "file": "charging.png",
-      "type": "png"
-    },
-    {
-      "name": "CHARGING_MASK",
-      "file": "charging_mask.png",
-      "type": "png"
-    },
-    {
-      "name": "BLUETOOTH_DISCONNECTED",
-      "file": "bluetooth_disconnected.png",
-      "type": "png"
-    },
-    {
-      "name": "BLUETOOTH_CONNECTED",
-      "file": "bluetooth_connected.png",
-      "type": "png"
-    },
-    {
-      "name": "BLUETOOTH_MASK",
-      "file": "bluetooth_mask.png",
-      "type": "png"
-    },
+      {
+        "name": "BATTERY_GAUGE_EMPTY",
+        "file": "battery_gauge_empty.png",
+        "type": "png"
+      },
+      {
+        "name": "BATTERY_GAUGE_CHARGED",
+        "file": "battery_gauge_charged.png",
+        "type": "png"
+      },
+      {
+        "name": "BATTERY_GAUGE_MASK",
+        "file": "battery_gauge_mask.png",
+        "type": "png"
+      },
+      {
+        "name": "CHARGING",
+        "file": "charging.png",
+        "type": "png"
+      },
+      {
+        "name": "CHARGING_MASK",
+        "file": "charging_mask.png",
+        "type": "png"
+      },
+      {
+        "name": "BLUETOOTH_DISCONNECTED",
+        "file": "bluetooth_disconnected.png",
+        "type": "png"
+      },
+      {
+        "name": "BLUETOOTH_CONNECTED",
+        "file": "bluetooth_connected.png",
+        "type": "png"
+      },
+      {
+        "name": "BLUETOOTH_MASK",
+        "file": "bluetooth_mask.png",
+        "type": "png"
+      },
       {
         "type": "png",
         "name": "ONE",
@@ -189,5 +196,10 @@
         "file": "date_background.png"
       }
     ]
-  }
+  },
+  "targetPlatforms": [
+    "aplite",
+    "basalt"
+  ],
+  "sdkVersion": "3"
 }

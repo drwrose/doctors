@@ -11,6 +11,10 @@
 // in a timely fashion.
 //#define FAST_TIME 1
 
+#ifdef PBL_PLATFORM_APLITE
+#define gbitmap_get_bounds(bm) (bm->bounds)
+#endif
+
 #define SCREEN_WIDTH 144
 #define SCREEN_HEIGHT 168
 
@@ -126,6 +130,7 @@ uint8_t reverse_bits(uint8_t b) {
 // Horizontally flips the indicated GBitmap in-place.  Requires
 // that the width be a multiple of 8 pixels.
 void flip_bitmap_x(GBitmap *image) {
+  /*
   int height = image->bounds.size.h;
   int width = image->bounds.size.w;  // multiple of 8, by our convention.
   int width_bytes = width / 8;
@@ -141,6 +146,7 @@ void flip_bitmap_x(GBitmap *image) {
       row[x2] = b;
     }
   }
+  */
 }
 
 int check_buzzer() {
@@ -286,7 +292,7 @@ void start_transition(int face_new, bool for_startup) {
     if (wipe_direction) {
       flip_bitmap_x(sprite_mask.bitmap);
       flip_bitmap_x(sprite.bitmap);
-      sprite_cx = sprite.bitmap->bounds.size.w - sprite_cx;
+      sprite_cx = gbitmap_get_bounds(sprite.bitmap).size.w - sprite_cx;
     }
     break;
 
@@ -298,7 +304,7 @@ void start_transition(int face_new, bool for_startup) {
     if (wipe_direction) {
       flip_bitmap_x(sprite_mask.bitmap);
       flip_bitmap_x(sprite.bitmap);
-      sprite_cx = sprite.bitmap->bounds.size.w - sprite_cx;
+      sprite_cx = gbitmap_get_bounds(sprite.bitmap).size.w - sprite_cx;
     }
     break;
   }
@@ -337,7 +343,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 
     // How far is the total animation distance from offscreen to
     // offscreen?
-    int sprite_width = sprite_mask.bitmap->bounds.size.w;
+    int sprite_width = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
     int wipe_width = SCREEN_WIDTH + sprite_width;
 
     // Compute the current pixel position of the center of the wipe.
@@ -397,8 +403,8 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 
     if (sprite_mask.bitmap != NULL) {
       // Then, draw the sprite on top of the wipe line.
-      destination.size.w = sprite_mask.bitmap->bounds.size.w;
-      destination.size.h = sprite_mask.bitmap->bounds.size.h;
+      destination.size.w = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
+      destination.size.h = gbitmap_get_bounds(sprite_mask.bitmap).size.h;
       destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
       destination.origin.x = wipe_x - sprite_cx;
       graphics_context_set_compositing_mode(ctx, GCompOpClear);
