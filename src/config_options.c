@@ -11,12 +11,12 @@ void init_default_options() {
   static ConfigOptions default_options = {
     IM_when_needed,   // battery_gauge
     IM_when_needed,   // bluetooth_indicator
-    false,            // second_hand
+    true, //false,            // second_hand
     false,            // hour_buzzer
     true,             // bluetooth_buzzer
     true,             // hurt
     false,            // show_date
-    false,            // show_hour
+    true, //false,            // show_hour
     DL_english,       // display_lang
   };
   

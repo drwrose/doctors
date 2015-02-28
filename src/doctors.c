@@ -9,7 +9,7 @@
 
 // Define this during development to make it easier to see animations
 // in a timely fashion.
-//#define FAST_TIME 1
+#define FAST_TIME 1
 
 #ifdef PBL_PLATFORM_APLITE
 #define gbitmap_get_bounds(bm) (bm->bounds)
@@ -312,6 +312,7 @@ void start_transition(int face_new, bool for_startup) {
   // Start the transition timer.
   layer_mark_dirty(face_layer);
   set_next_timer();
+  stop_transition(); // hack.
 }
 
 void face_layer_update_callback(Layer *me, GContext* ctx) {
@@ -402,6 +403,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     }
 
     if (sprite_mask.bitmap != NULL) {
+    /*
       // Then, draw the sprite on top of the wipe line.
       destination.size.w = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
       destination.size.h = gbitmap_get_bounds(sprite_mask.bitmap).size.h;
@@ -436,6 +438,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
           gbitmap_destroy(tardis);
         }
       }
+    */
       
       // Finally, re-draw the minutes background card on top of the sprite.
       destination.size.w = 50;
@@ -482,7 +485,8 @@ void hour_layer_update_callback(Layer *me, GContext* ctx) {
     box.origin.y = 3;
 
     // Extend the background card to make room for the hours digits.
-    graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    //graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    graphics_context_set_compositing_mode(ctx, GCompOpAssign);
     graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, box);
 
     // Draw the hours digits.

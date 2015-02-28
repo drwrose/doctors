@@ -3,12 +3,12 @@
 // otherwise, the defaults in init_default_options() are used instead.
 var default_battery_gauge = 1;
 var default_bluetooth_indicator = 1;
-var default_second_hand = 0;
+var default_second_hand = 1; //0;
 var default_hour_buzzer = 0;
 var default_bluetooth_buzzer = 1;
 var default_hurt = 1;
 var default_show_date = 0;
-var default_show_hour = 0;
+var default_show_hour = 1; //0;
 var default_display_lang = 'en_US';
 
 var battery_gauge;
