@@ -131,11 +131,37 @@ uint8_t reverse_nibbles(uint8_t b) {
 // Horizontally flips the indicated GBitmap in-place.  Requires
 // that the width be a multiple of 8 pixels.
 void flip_bitmap_x(GBitmap *image) {
-  assert(image != NULL);
+  if (image == NULL) {
+    // Trivial no-op.
+    return;
+  }
+  
   int height = gbitmap_get_bounds(image).size.h;
   int width = gbitmap_get_bounds(image).size.w;  // multiple of 8, by our convention.
-  //int width_bytes = width / 8;
-  int width_bytes = width / 2;
+  int pixels_per_byte = 8;
+
+#ifndef PBL_PLATFORM_APLITE
+  switch (gbitmap_get_format(image)) {
+  case GBitmapFormat1Bit:
+  case GBitmapFormat1BitPalette:
+    pixels_per_byte = 8;
+    break;
+    
+  case GBitmapFormat2BitPalette:
+    pixels_per_byte = 4;
+    break;
+
+  case GBitmapFormat4BitPalette:
+    pixels_per_byte = 2;
+    break;
+
+  case GBitmapFormat8Bit:
+    pixels_per_byte = 1;
+    break;
+  }
+#endif  // PBL_PLATFORM_APLITE
+    
+  int width_bytes = width / pixels_per_byte;
   int stride = gbitmap_get_bytes_per_row(image); // multiple of 4, by Pebble.
 
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "flip_bitmap_x, width_bytes = %d, stride=%d, format=%d", width_bytes, stride, gbitmap_get_format(image));
@@ -145,16 +171,39 @@ void flip_bitmap_x(GBitmap *image) {
 
   for (int y = 0; y < height; ++y) {
     uint8_t *row = data + y * stride;
-    for (int x1 = (width_bytes - 1) / 2; x1 >= 0; --x1) {
-      int x2 = width_bytes - 1 - x1;
-      /*
-      uint8_t b = reverse_bits(row[x1]);
-      row[x1] = reverse_bits(row[x2]);
-      row[x2] = b;
-      */
-      uint8_t b = reverse_nibbles(row[x1]);
-      row[x1] = reverse_nibbles(row[x2]);
-      row[x2] = b;
+    switch (pixels_per_byte) {
+    case 8:
+      for (int x1 = (width_bytes - 1) / 2; x1 >= 0; --x1) {
+        int x2 = width_bytes - 1 - x1;
+        uint8_t b = reverse_bits(row[x1]);
+        row[x1] = reverse_bits(row[x2]);
+        row[x2] = b;
+      }
+      break;
+
+#ifndef PBL_PLATFORM_APLITE
+    case 4:
+      // TODO.
+      break;
+      
+    case 2:
+      for (int x1 = (width_bytes - 1) / 2; x1 >= 0; --x1) {
+        int x2 = width_bytes - 1 - x1;
+        uint8_t b = reverse_nibbles(row[x1]);
+        row[x1] = reverse_nibbles(row[x2]);
+        row[x2] = b;
+      }
+      break;
+      
+    case 1:
+      for (int x1 = (width_bytes - 1) / 2; x1 >= 0; --x1) {
+        int x2 = width_bytes - 1 - x1;
+        uint8_t b = row[x1];
+        row[x1] = row[x2];
+        row[x2] = b;
+      }
+      break;
+#endif  // PBL_PLATFORM_APLITE
     }
   }
 }
@@ -260,20 +309,6 @@ void start_transition(int face_new, bool for_startup) {
 
   // Update the face display.
   face_value = face_new;
-
-  /*
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loading face_image, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-  face_value = face_new;
-  face_image = rle_bwd_create(face_resource_ids[face_value]);
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_image is %d,%p", face_value, face_image.bitmap);
-  if (face_image.bitmap == NULL) {
-    bwd_destroy(&prev_image);
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "after free, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-    face_image = rle_bwd_create(face_resource_ids[face_value]);
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "2nd try, face_image is %d,%p", face_value, face_image.bitmap);
-  }
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded face_image, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-  */
  
   face_transition = true;
   transition_frame = 0;
@@ -296,14 +331,15 @@ void start_transition(int face_new, bool for_startup) {
     sprite_sel = (rand() % NUM_SPRITES);
     anim_direction = (rand() % 2) != 0;
   }
-  wipe_direction = true; // hack
-  sprite_sel = SPRITE_DALEK;  // hack
+  sprite_sel = SPRITE_TARDIS;  // hack
 
   // Initialize the sprite.
   switch (sprite_sel) {
   case SPRITE_TARDIS:
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition TARDIS, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-    //sprite_mask = rle_bwd_create(RESOURCE_ID_TARDIS_MASK);
+#ifdef PBL_PLATFORM_APLITE
+    sprite_mask = rle_bwd_create(RESOURCE_ID_TARDIS_MASK);
+#endif  // PBL_PLATFORM_APLITE
     //sprite_width = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
     sprite_width = 112;
     sprite_cx = 72;
@@ -311,13 +347,15 @@ void start_transition(int face_new, bool for_startup) {
 
   case SPRITE_K9:
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition K9, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-    //sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
+#ifdef PBL_PLATFORM_APLITE
+    sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
+#endif  // PBL_PLATFORM_APLITE
     sprite = rle_bwd_create(RESOURCE_ID_K9);
     sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
     sprite_cx = 41;
 
     if (wipe_direction) {
-      //flip_bitmap_x(sprite_mask.bitmap);
+      flip_bitmap_x(sprite_mask.bitmap);
       flip_bitmap_x(sprite.bitmap);
       sprite_cx = gbitmap_get_bounds(sprite.bitmap).size.w - sprite_cx;
     }
@@ -325,13 +363,15 @@ void start_transition(int face_new, bool for_startup) {
 
   case SPRITE_DALEK:
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition DALEK, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-    //sprite_mask = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
+#ifdef PBL_PLATFORM_APLITE
+    sprite_mask = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
+#endif  // PBL_PLATFORM_APLITE
     sprite = rle_bwd_create(RESOURCE_ID_DALEK);
     sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
     sprite_cx = 74;
 
     if (wipe_direction) {
-      //flip_bitmap_x(sprite_mask.bitmap);
+      flip_bitmap_x(sprite_mask.bitmap);
       flip_bitmap_x(sprite.bitmap);
       sprite_cx = sprite_width - sprite_cx;
     }
@@ -501,7 +541,6 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       }
     }
 
-    /*
     if (sprite_mask.bitmap != NULL) {
       // Then, draw the sprite on top of the wipe line.
       destination.size.w = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
@@ -511,7 +550,6 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       graphics_context_set_compositing_mode(ctx, GCompOpClear);
       graphics_draw_bitmap_in_rect(ctx, sprite_mask.bitmap, destination);
     }
-    */
 
     if (sprite.bitmap != NULL) {
       // Fixed sprite case.
@@ -519,12 +557,14 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       destination.size.h = gbitmap_get_bounds(sprite.bitmap).size.h;
       destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
       destination.origin.x = wipe_x - sprite_cx;
-      //graphics_context_set_compositing_mode(ctx, GCompOpOr);
+#ifdef PBL_PLATFORM_APLITE
+      graphics_context_set_compositing_mode(ctx, GCompOpOr);
+#else  //  PBL_PLATFORM_APLITE
       graphics_context_set_compositing_mode(ctx, GCompOpSet);
+#endif //  PBL_PLATFORM_APLITE
       graphics_draw_bitmap_in_rect(ctx, sprite.bitmap, destination);
 
     } else if (sprite_sel == SPRITE_TARDIS) {
-      /*
       // Tardis case.  Since it's animated, but we don't have enough
       // RAM to hold all the frames at once, we have to load one
       // frame at a time as we need it.  We don't use RLE encoding
@@ -540,12 +580,15 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
           flip_bitmap_x(tardis);
         }
         
+#ifdef PBL_PLATFORM_APLITE
         graphics_context_set_compositing_mode(ctx, GCompOpOr);
+#else  //  PBL_PLATFORM_APLITE
+        graphics_context_set_compositing_mode(ctx, GCompOpSet);
+#endif //  PBL_PLATFORM_APLITE
         graphics_draw_bitmap_in_rect(ctx, tardis, destination);
         
         gbitmap_destroy(tardis);
       }
-      */
     }
 
       /*

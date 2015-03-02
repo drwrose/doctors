@@ -79,22 +79,22 @@
       {
         "type": "png",
         "name": "TARDIS_01",
-        "file": "tardis_01.png"
+        "file": "tardis_01_c.png"
       },
       {
         "type": "png",
         "name": "TARDIS_02",
-        "file": "tardis_02.png"
+        "file": "tardis_02_c.png"
       },
       {
         "type": "png",
         "name": "TARDIS_03",
-        "file": "tardis_03.png"
+        "file": "tardis_03_c.png"
       },
       {
         "type": "png",
         "name": "TARDIS_04",
-        "file": "tardis_04.png"
+        "file": "tardis_04_c.png"
       },
       {
         "type": "png",
