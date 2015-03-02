@@ -75,71 +75,7 @@
         "file": "bluetooth_mask.png",
         "type": "png"
       },
-      {
-        "type": "png",
-        "name": "ONE",
-        "file": "one.png"
-      },
-      {
-        "type": "png",
-        "name": "TWO",
-        "file": "two.png"
-      },
-      {
-        "type": "png",
-        "name": "THREE",
-        "file": "three.png"
-      },
-      {
-        "type": "png",
-        "name": "FOUR",
-        "file": "four.png"
-      },
-      {
-        "type": "png",
-        "name": "FIVE",
-        "file": "five.png"
-      },
-      {
-        "type": "png",
-        "name": "SIX",
-        "file": "six.png"
-      },
-      {
-        "type": "png",
-        "name": "SEVEN",
-        "file": "seven.png"
-      },
-      {
-        "type": "png",
-        "name": "EIGHT",
-        "file": "eight.png"
-      },
-      {
-        "type": "png",
-        "name": "NINE",
-        "file": "nine.png"
-      },
-      {
-        "type": "png",
-        "name": "TEN",
-        "file": "ten.png"
-      },
-      {
-        "type": "png",
-        "name": "ELEVEN",
-        "file": "eleven.png"
-      },
-      {
-        "type": "png",
-        "name": "TWELVE",
-        "file": "twelve.png"
-      },
-      {
-        "type": "png",
-        "name": "HURT",
-        "file": "hurt.png"
-      },
+%(doctorsImages)s
       {
         "type": "png",
         "name": "TARDIS_01",

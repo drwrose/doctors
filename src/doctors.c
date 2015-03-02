@@ -6,10 +6,8 @@
 #include "bwd.h"
 #include "lang_table.h"
 #include "../resources/lang_table.c"
-
-// Define this during development to make it easier to see animations
-// in a timely fashion.
-#define FAST_TIME 1
+#include "../resources/generated_config.h"
+#include "../resources/generated_config.c"
 
 #ifdef PBL_PLATFORM_APLITE
 #define gbitmap_get_bounds(bm) (bm->bounds)
@@ -48,16 +46,25 @@ Layer *hour_layer; // optional hour display.
 Layer *date_layer; // optional day/date display.
 
 int face_value;       // The current face on display (or transitioning into)
-BitmapWithData face_image;  // The current face bitmap
+
+// The current face bitmap, each slice:
+typedef struct {
+  int face_value;
+  BitmapWithData face_image;
+} VisibleFace;
+VisibleFace visible_face[NUM_SLICES];
+
+// The transitioning face slice.
+int next_face_value;
+int next_face_slice;
+BitmapWithData next_face_image;
+
 
 bool face_transition; // True if the face is in transition
 bool wipe_direction;  // True for left-to-right, False for right-to-left.
 bool anim_direction;  // True to reverse tardis rotation.
 int transition_frame; // Frame number of current transition
 int num_transition_frames;  // Total frames for transition
-
-int prev_face_value;  // The face we're transitioning from, or -1.
-BitmapWithData prev_image;  // The previous face bitmap (only during a transition)
 
 // The mask and image for the moving sprite across the wipe.
 BitmapWithData sprite_mask;
@@ -77,22 +84,6 @@ bool hide_colon;     // Set true every half-second to blink the colon off.
 int last_buzz_hour;  // The hour at which we last sounded the buzzer.
 int day_value;       // The current day-of-the-week displayed (if enabled).
 int date_value;      // The current date-of-the-week displayed (if enabled).
-
-int face_resource_ids[13] = {
-  RESOURCE_ID_TWELVE,
-  RESOURCE_ID_ONE,
-  RESOURCE_ID_TWO,
-  RESOURCE_ID_THREE,
-  RESOURCE_ID_FOUR,
-  RESOURCE_ID_FIVE,
-  RESOURCE_ID_SIX,
-  RESOURCE_ID_SEVEN,
-  RESOURCE_ID_EIGHT,
-  RESOURCE_ID_NINE,
-  RESOURCE_ID_TEN,
-  RESOURCE_ID_ELEVEN,
-  RESOURCE_ID_HURT,
-};
 
 #define SPRITE_TARDIS 0
 #define SPRITE_K9     1
@@ -228,7 +219,9 @@ void stop_transition() {
   face_transition = false;
 
   // Release the transition resources.
-  bwd_destroy(&prev_image);
+  next_face_value = -1;
+  next_face_slice = -1;
+  bwd_destroy(&next_face_image);
   bwd_destroy(&sprite_mask);
   bwd_destroy(&sprite);
 
@@ -237,21 +230,32 @@ void stop_transition() {
     app_timer_cancel(anim_timer);
     anim_timer = NULL;
   }
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "stop_transition(), memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
 }
 
 void start_transition(int face_new, bool for_startup) {
   if (face_transition) {
     stop_transition();
   }
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "start_transition(%d, %d)", face_new, for_startup);
 
   // Update the face display.
-  assert(prev_image.bitmap == NULL);
-  prev_face_value = face_value;
-  prev_image = face_image;
+  face_value = face_new;
 
+  /*
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loading face_image, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
   face_value = face_new;
   face_image = rle_bwd_create(face_resource_ids[face_value]);
-
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_image is %d,%p", face_value, face_image.bitmap);
+  if (face_image.bitmap == NULL) {
+    bwd_destroy(&prev_image);
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "after free, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
+    face_image = rle_bwd_create(face_resource_ids[face_value]);
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "2nd try, face_image is %d,%p", face_value, face_image.bitmap);
+  }
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded face_image, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
+  */
+ 
   face_transition = true;
   transition_frame = 0;
   num_transition_frames = NUM_TRANSITION_FRAMES_HOUR;
@@ -279,30 +283,33 @@ void start_transition(int face_new, bool for_startup) {
   // Initialize the sprite.
   switch (sprite_sel) {
   case SPRITE_TARDIS:
-    sprite_mask = rle_bwd_create(RESOURCE_ID_TARDIS_MASK);
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition TARDIS, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
+    //sprite_mask = rle_bwd_create(RESOURCE_ID_TARDIS_MASK);
     
     sprite_cx = 72;
     break;
 
   case SPRITE_K9:
-    sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition K9, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
+    //sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
     sprite = rle_bwd_create(RESOURCE_ID_K9);
     sprite_cx = 41;
 
     if (wipe_direction) {
-      flip_bitmap_x(sprite_mask.bitmap);
+      //flip_bitmap_x(sprite_mask.bitmap);
       flip_bitmap_x(sprite.bitmap);
       sprite_cx = gbitmap_get_bounds(sprite.bitmap).size.w - sprite_cx;
     }
     break;
 
   case SPRITE_DALEK:
-    sprite_mask = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition DALEK, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
+    //sprite_mask = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
     sprite = rle_bwd_create(RESOURCE_ID_DALEK);
     sprite_cx = 74;
 
     if (wipe_direction) {
-      flip_bitmap_x(sprite_mask.bitmap);
+      //flip_bitmap_x(sprite_mask.bitmap);
       flip_bitmap_x(sprite.bitmap);
       sprite_cx = gbitmap_get_bounds(sprite.bitmap).size.w - sprite_cx;
     }
@@ -312,11 +319,57 @@ void start_transition(int face_new, bool for_startup) {
   // Start the transition timer.
   layer_mark_dirty(face_layer);
   set_next_timer();
-  stop_transition(); // hack.
 }
 
-void face_layer_update_callback(Layer *me, GContext* ctx) {
-  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_layer");
+// Ensures the bitmap for face_value is loaded for slice si.
+void
+load_face_slice(int si, int face_value) {
+ if (visible_face[si].face_value != face_value) {
+   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "load_face_slice(%d, %d)", si, face_value);
+    bwd_destroy(&(visible_face[si].face_image));
+    visible_face[si].face_value = face_value;
+    int resource_id = face_resource_ids[face_value][si];
+    visible_face[si].face_image = rle_bwd_create(resource_id);
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded %p", visible_face[si].face_image.bitmap);
+  }
+}
+
+void
+load_next_face(int si, int face_value) {
+ if (next_face_value != face_value || next_face_slice != si) {
+   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "load_next_face(%d, %d)", si, face_value);
+    bwd_destroy(&next_face_image);
+    next_face_value = face_value;
+    next_face_slice = si;
+    int resource_id = face_resource_ids[face_value][si];
+    next_face_image = rle_bwd_create(resource_id);
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded %p", visible_face[si].face_image.bitmap);
+  }
+}
+
+// Draws the indicated face_value for slice si.
+void
+draw_face_slice(Layer *me, GContext *ctx, int si) {
+  GRect destination = layer_get_frame(me);
+  destination.origin.x = slice_points[si];
+  destination.origin.y = 0;
+  destination.size.w = slice_points[si + 1] - slice_points[si];
+        
+  if (visible_face[si].face_image.bitmap == NULL) {
+    // The bitmap wasn't loaded successfully; just clear the
+    // region.  This is a fallback.
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_rect(ctx, destination, 0, GCornerNone);
+    //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "not drawing slice %d", si);
+  } else {
+    // The bitmap was loaded successfully, so draw it.
+    graphics_draw_bitmap_in_rect(ctx, visible_face[si].face_image.bitmap, destination);
+    //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "drawing slice %d", si);
+  }
+}
+
+void face_layer_update_callback(Layer *me, GContext *ctx) {
+  //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_layer");
   int ti = 0;
   
   if (face_transition) {
@@ -330,13 +383,13 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
 
   if (!face_transition) {
     // The simple case: no transition, so just hold the current frame.
-    if (face_value >= 0 && face_image.bitmap != NULL) {
-      GRect destination = layer_get_frame(me);
-      destination.origin.x = 0;
-      destination.origin.y = 0;
-      
+    //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "drawing current frame %d", face_value);
+    if (face_value >= 0) {
       graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-      graphics_draw_bitmap_in_rect(ctx, face_image.bitmap, destination);
+      for (int si = 0; si < NUM_SLICES; ++si) {
+        load_face_slice(si, face_value);
+        draw_face_slice(me, ctx, si);
+      }
     }
 
   } else {
@@ -356,49 +409,74 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
     }
     wipe_x = wipe_x - (sprite_width - sprite_cx);
 
+    // The slice number within which the transition is currently
+    // happening.
+    int wipe_slice = (wipe_x * NUM_SLICES) / SCREEN_WIDTH;
+    if (wipe_slice < 0) {
+      wipe_slice = 0;
+    } else if (wipe_slice >= NUM_SLICES) {
+      wipe_slice = NUM_SLICES - 1;
+    }
+      
     GRect destination = layer_get_frame(me);
-    destination.origin.x = 0;
+    destination.origin.x = slice_points[wipe_slice];
     destination.origin.y = 0;
+    destination.size.w = slice_points[wipe_slice + 1] - slice_points[wipe_slice];
     
     if (wipe_direction) {
-      // First, draw the previous face.
-      if (wipe_x < SCREEN_WIDTH) {
-        if (prev_image.bitmap != NULL) {
-          graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-          graphics_draw_bitmap_in_rect(ctx, prev_image.bitmap, destination);
-        } else {
-          graphics_context_set_fill_color(ctx, GColorBlack);
-          graphics_fill_rect(ctx, destination, 0, GCornerNone);
+      // Wiping left-to-right.
+
+      // Draw the old face within the wipe_slice, and draw the visible
+      // portion of the new face on top of it.
+      draw_face_slice(me, ctx, wipe_slice);
+      if (wipe_x > destination.origin.x) {
+        load_next_face(wipe_slice, face_value);
+        if (next_face_image.bitmap != NULL) {
+          destination.size.w = wipe_x - destination.origin.x;
+          graphics_draw_bitmap_in_rect(ctx, next_face_image.bitmap, destination);
         }
       }
-      
-      if (wipe_x > 0) {
-        // Then, draw the new face on top of it, reducing the size to wipe
-        // from left to right.
-        if (face_image.bitmap != NULL) {
-          destination.size.w = wipe_x;
-          graphics_draw_bitmap_in_rect(ctx, face_image.bitmap, destination);
-        }
+
+      // Draw all of the slices left of the wipe_slice in the new
+      // face.
+      for (int si = 0; si < wipe_slice; ++si) {
+        load_face_slice(si, face_value);
+        draw_face_slice(me, ctx, si);
       }
+
+      // Draw all of the slices right of the wipe_slice
+      // in the old face.
+      for (int si = wipe_slice + 1; si < NUM_SLICES; ++si) {
+        draw_face_slice(me, ctx, si);
+      }
+
     } else {
-      // First, draw the new face.
-      if (wipe_x < SCREEN_WIDTH) {
-        if (face_image.bitmap != NULL) {
-          graphics_context_set_compositing_mode(ctx, GCompOpAssign);
-          graphics_draw_bitmap_in_rect(ctx, face_image.bitmap, destination);
+      // Wiping right-to-left.
+
+      // Draw the new face within the wipe_slice, and then draw
+      // visible portion of the old face on top of it.
+      load_next_face(wipe_slice, face_value);
+      if (next_face_image.bitmap != NULL) {
+        graphics_draw_bitmap_in_rect(ctx, next_face_image.bitmap, destination);
+      }
+      if (wipe_x > destination.origin.x) {
+        if (visible_face[wipe_slice].face_image.bitmap != NULL) {
+          destination.size.w = wipe_x - destination.origin.x;
+          graphics_draw_bitmap_in_rect(ctx, visible_face[wipe_slice].face_image.bitmap, destination);
         }
       }
-      
-      if (wipe_x > 0) {
-        // Then, draw the previous face on top of it, reducing the size to wipe
-        // from right to left.
-        destination.size.w = wipe_x;
-        if (prev_image.bitmap != NULL) {
-          graphics_draw_bitmap_in_rect(ctx, prev_image.bitmap, destination);
-        } else {
-          graphics_context_set_fill_color(ctx, GColorBlack);
-          graphics_fill_rect(ctx, destination, 0, GCornerNone);
-        }
+
+      // Draw all of the slices left of the wipe_slice in the old
+      // face.
+      for (int si = 0; si <= wipe_slice; ++si) {
+        draw_face_slice(me, ctx, si);
+      }
+
+      // Draw all of the slices right of the wipe_slice
+      // in the new face.
+      for (int si = wipe_slice + 1; si < NUM_SLICES; ++si) {
+        load_face_slice(si, face_value);
+        draw_face_slice(me, ctx, si);
       }
     }
 
@@ -439,7 +517,8 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
         }
       }
     */
-      
+
+      /*
       // Finally, re-draw the minutes background card on top of the sprite.
       destination.size.w = 50;
       destination.size.h = 31;
@@ -447,6 +526,7 @@ void face_layer_update_callback(Layer *me, GContext* ctx) {
       destination.origin.y = SCREEN_HEIGHT - destination.size.h;
       graphics_context_set_compositing_mode(ctx, GCompOpOr);
       graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, destination);
+      */
     }
   }
 }
@@ -673,6 +753,8 @@ void handle_init() {
 
   face_transition = false;
   face_value = -1;
+  next_face_value = -1;
+  next_face_slice = -1;
   last_buzz_hour = -1;
   hour_value = startup_time->tm_hour % 12;
   minute_value = startup_time->tm_min;
@@ -680,7 +762,11 @@ void handle_init() {
   day_value = startup_time->tm_wday;
   date_value = startup_time->tm_mday;
   hide_colon = false;
-  
+
+  for (int si = 0; si < NUM_SLICES; ++si) {
+    visible_face[si].face_value = -1;
+  }
+    
   window = window_create();
   window_set_background_color(window, GColorWhite);
   struct Layer *root_layer = window_get_root_layer(window);
@@ -729,7 +815,9 @@ void handle_deinit() {
   layer_destroy(face_layer);
   window_destroy(window);
 
-  bwd_destroy(&face_image);
+  for (int si = 0; si < NUM_SLICES; ++si) {
+    bwd_destroy(&visible_face[si].face_image);
+  }
   bwd_destroy(&mins_background);
   bwd_destroy(&date_background);
 }

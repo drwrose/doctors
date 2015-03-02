@@ -1,6 +1,6 @@
 #include "bwd.h"
 #include "assert.h"
-//#include "../resources/generated_config.h"
+#include "../resources/generated_config.h"
 //#define SUPPORT_RLE
 
 // From bitmapgen.py:
@@ -50,6 +50,7 @@ void bwd_destroy(BitmapWithData *bwd) {
 // The returned bitmap must be released with bwd_destroy().
 BitmapWithData png_bwd_create(int resource_id) {
   GBitmap *image = gbitmap_create_with_resource(resource_id);
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "getting resource %d, image = %p, memory used, free is %d, %d", resource_id, image, heap_bytes_used(), heap_bytes_free());
   return bwd_create(image, NULL);
 }
 
