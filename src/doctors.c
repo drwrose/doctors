@@ -10,7 +10,10 @@
 #include "../resources/generated_config.c"
 
 #ifdef PBL_PLATFORM_APLITE
-#define gbitmap_get_bounds(bm) (bm->bounds)
+#define gbitmap_get_bounds(bm) ((bm)->bounds)
+#define gbitmap_get_bytes_per_row(bm) ((bm)->row_size_bytes)
+#define gbitmap_get_data(bm) ((bm)->addr)
+#define gbitmap_get_format(bm) (0)
 #endif
 
 #define SCREEN_WIDTH 144
@@ -115,31 +118,45 @@ VibePattern tap = {
 };
 
 // Reverse the bits of a byte.
-// http://www-graphics.stanford.edu/~seander/bithacks.html#BitReverseTable
+// http://www.graphics.stanford.edu/~seander/bithacks.html#BitReverseTable
 uint8_t reverse_bits(uint8_t b) {
   return ((b * 0x0802LU & 0x22110LU) | (b * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16; 
+}
+
+// Reverse the high nibble and low nibble of a byte.
+uint8_t reverse_nibbles(uint8_t b) {
+  return ((b & 0xf) << 4) | ((b >> 4) & 0xf);
 }
 
 // Horizontally flips the indicated GBitmap in-place.  Requires
 // that the width be a multiple of 8 pixels.
 void flip_bitmap_x(GBitmap *image) {
-  /*
-  int height = image->bounds.size.h;
-  int width = image->bounds.size.w;  // multiple of 8, by our convention.
-  int width_bytes = width / 8;
-  int stride = image->row_size_bytes; // multiple of 4, by Pebble.
-  uint8_t *data = image->addr;
+  assert(image != NULL);
+  int height = gbitmap_get_bounds(image).size.h;
+  int width = gbitmap_get_bounds(image).size.w;  // multiple of 8, by our convention.
+  //int width_bytes = width / 8;
+  int width_bytes = width / 2;
+  int stride = gbitmap_get_bytes_per_row(image); // multiple of 4, by Pebble.
+
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "flip_bitmap_x, width_bytes = %d, stride=%d, format=%d", width_bytes, stride, gbitmap_get_format(image));
+  assert(stride >= width_bytes);
+
+  uint8_t *data = gbitmap_get_data(image);
 
   for (int y = 0; y < height; ++y) {
     uint8_t *row = data + y * stride;
     for (int x1 = (width_bytes - 1) / 2; x1 >= 0; --x1) {
       int x2 = width_bytes - 1 - x1;
+      /*
       uint8_t b = reverse_bits(row[x1]);
       row[x1] = reverse_bits(row[x2]);
       row[x2] = b;
+      */
+      uint8_t b = reverse_nibbles(row[x1]);
+      row[x1] = reverse_nibbles(row[x2]);
+      row[x2] = b;
     }
   }
-  */
 }
 
 int check_buzzer() {
@@ -279,7 +296,8 @@ void start_transition(int face_new, bool for_startup) {
     sprite_sel = (rand() % NUM_SPRITES);
     anim_direction = (rand() % 2) != 0;
   }
-  sprite_sel = SPRITE_K9;  // hack
+  wipe_direction = true; // hack
+  sprite_sel = SPRITE_DALEK;  // hack
 
   // Initialize the sprite.
   switch (sprite_sel) {
