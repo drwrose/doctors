@@ -67,8 +67,10 @@ int transition_frame; // Frame number of current transition
 int num_transition_frames;  // Total frames for transition
 
 // The mask and image for the moving sprite across the wipe.
+int sprite_sel;
 BitmapWithData sprite_mask;
 BitmapWithData sprite;
+int sprite_width;
 
 // Triggered at ANIM_TICK_MS intervals for transition animations; also
 // triggered occasionally to check the hour buzzer.
@@ -260,12 +262,10 @@ void start_transition(int face_new, bool for_startup) {
   transition_frame = 0;
   num_transition_frames = NUM_TRANSITION_FRAMES_HOUR;
 
-  int sprite_sel;
-
   if (for_startup) {
     // Force the right-to-left TARDIS transition at startup.
     wipe_direction = false;
-    sprite_sel = 0;
+    sprite_sel = SPRITE_TARDIS;
     anim_direction = false;
 
     // We used to want this to go super-fast at startup, to match the
@@ -279,13 +279,15 @@ void start_transition(int face_new, bool for_startup) {
     sprite_sel = (rand() % NUM_SPRITES);
     anim_direction = (rand() % 2) != 0;
   }
+  sprite_sel = SPRITE_K9;  // hack
 
   // Initialize the sprite.
   switch (sprite_sel) {
   case SPRITE_TARDIS:
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition TARDIS, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
     //sprite_mask = rle_bwd_create(RESOURCE_ID_TARDIS_MASK);
-    
+    //sprite_width = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
+    sprite_width = 112;
     sprite_cx = 72;
     break;
 
@@ -293,6 +295,7 @@ void start_transition(int face_new, bool for_startup) {
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition K9, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
     //sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
     sprite = rle_bwd_create(RESOURCE_ID_K9);
+    sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
     sprite_cx = 41;
 
     if (wipe_direction) {
@@ -306,12 +309,13 @@ void start_transition(int face_new, bool for_startup) {
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition DALEK, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
     //sprite_mask = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
     sprite = rle_bwd_create(RESOURCE_ID_DALEK);
+    sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
     sprite_cx = 74;
 
     if (wipe_direction) {
       //flip_bitmap_x(sprite_mask.bitmap);
       flip_bitmap_x(sprite.bitmap);
-      sprite_cx = gbitmap_get_bounds(sprite.bitmap).size.w - sprite_cx;
+      sprite_cx = sprite_width - sprite_cx;
     }
     break;
   }
@@ -397,7 +401,6 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
 
     // How far is the total animation distance from offscreen to
     // offscreen?
-    int sprite_width = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
     int wipe_width = SCREEN_WIDTH + sprite_width;
 
     // Compute the current pixel position of the center of the wipe.
@@ -454,7 +457,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       // Wiping right-to-left.
 
       // Draw the new face within the wipe_slice, and then draw
-      // visible portion of the old face on top of it.
+      // the visible portion of the old face on top of it.
       load_next_face(wipe_slice, face_value);
       if (next_face_image.bitmap != NULL) {
         graphics_draw_bitmap_in_rect(ctx, next_face_image.bitmap, destination);
@@ -468,7 +471,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
 
       // Draw all of the slices left of the wipe_slice in the old
       // face.
-      for (int si = 0; si <= wipe_slice; ++si) {
+      for (int si = 0; si < wipe_slice; ++si) {
         draw_face_slice(me, ctx, si);
       }
 
@@ -480,8 +483,8 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       }
     }
 
-    if (sprite_mask.bitmap != NULL) {
     /*
+    if (sprite_mask.bitmap != NULL) {
       // Then, draw the sprite on top of the wipe line.
       destination.size.w = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
       destination.size.h = gbitmap_get_bounds(sprite_mask.bitmap).size.h;
@@ -489,34 +492,42 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       destination.origin.x = wipe_x - sprite_cx;
       graphics_context_set_compositing_mode(ctx, GCompOpClear);
       graphics_draw_bitmap_in_rect(ctx, sprite_mask.bitmap, destination);
-
-      if (sprite.bitmap != NULL) {
-        // Fixed sprite case.
-        graphics_context_set_compositing_mode(ctx, GCompOpOr);
-        graphics_draw_bitmap_in_rect(ctx, sprite.bitmap, destination);
-      } else {
-        // Tardis case.  Since it's animated, but we don't have enough
-        // RAM to hold all the frames at once, we have to load one
-        // frame at a time as we need it.  We don't use RLE encoding
-        // on the Tardis frames in an attempt to cut down on needless
-        // CPU work while playing this animation.
-        int af = ti % NUM_TARDIS_FRAMES;
-        if (anim_direction) {
-          af = (NUM_TARDIS_FRAMES - 1) - af;
-        }
-        GBitmap *tardis = gbitmap_create_with_resource(tardis_frames[af].tardis);
-        if (tardis != NULL) {
-          if (tardis_frames[af].flip_x) {
-            flip_bitmap_x(tardis);
-          }
-          
-          graphics_context_set_compositing_mode(ctx, GCompOpOr);
-          graphics_draw_bitmap_in_rect(ctx, tardis, destination);
-          
-          gbitmap_destroy(tardis);
-        }
-      }
+    }
     */
+
+    if (sprite.bitmap != NULL) {
+      // Fixed sprite case.
+      destination.size.w = gbitmap_get_bounds(sprite.bitmap).size.w;
+      destination.size.h = gbitmap_get_bounds(sprite.bitmap).size.h;
+      destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
+      destination.origin.x = wipe_x - sprite_cx;
+      //graphics_context_set_compositing_mode(ctx, GCompOpOr);
+      graphics_draw_bitmap_in_rect(ctx, sprite.bitmap, destination);
+
+    } else if (sprite_sel == SPRITE_TARDIS) {
+      /*
+      // Tardis case.  Since it's animated, but we don't have enough
+      // RAM to hold all the frames at once, we have to load one
+      // frame at a time as we need it.  We don't use RLE encoding
+      // on the Tardis frames in an attempt to cut down on needless
+      // CPU work while playing this animation.
+      int af = ti % NUM_TARDIS_FRAMES;
+      if (anim_direction) {
+        af = (NUM_TARDIS_FRAMES - 1) - af;
+      }
+      GBitmap *tardis = gbitmap_create_with_resource(tardis_frames[af].tardis);
+      if (tardis != NULL) {
+        if (tardis_frames[af].flip_x) {
+          flip_bitmap_x(tardis);
+        }
+        
+        graphics_context_set_compositing_mode(ctx, GCompOpOr);
+        graphics_draw_bitmap_in_rect(ctx, tardis, destination);
+        
+        gbitmap_destroy(tardis);
+      }
+      */
+    }
 
       /*
       // Finally, re-draw the minutes background card on top of the sprite.
@@ -527,7 +538,6 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       graphics_context_set_compositing_mode(ctx, GCompOpOr);
       graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, destination);
       */
-    }
   }
 }
   
