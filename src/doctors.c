@@ -137,7 +137,7 @@ void flip_bitmap_x(GBitmap *image) {
   }
   
   int height = gbitmap_get_bounds(image).size.h;
-  int width = gbitmap_get_bounds(image).size.w;  // multiple of 8, by our convention.
+  int width = gbitmap_get_bounds(image).size.w;
   int pixels_per_byte = 8;
 
 #ifndef PBL_PLATFORM_APLITE
@@ -161,11 +161,12 @@ void flip_bitmap_x(GBitmap *image) {
   }
 #endif  // PBL_PLATFORM_APLITE
     
+  assert(width % pixels_per_byte == 0);  // This must be an even divisor, by our convention.
   int width_bytes = width / pixels_per_byte;
-  int stride = gbitmap_get_bytes_per_row(image); // multiple of 4, by Pebble.
+  int stride = gbitmap_get_bytes_per_row(image);
+  assert(stride >= width_bytes);
 
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "flip_bitmap_x, width_bytes = %d, stride=%d, format=%d", width_bytes, stride, gbitmap_get_format(image));
-  assert(stride >= width_bytes);
 
   uint8_t *data = gbitmap_get_data(image);
 
@@ -331,7 +332,6 @@ void start_transition(int face_new, bool for_startup) {
     sprite_sel = (rand() % NUM_SPRITES);
     anim_direction = (rand() % 2) != 0;
   }
-  sprite_sel = SPRITE_TARDIS;  // hack
 
   // Initialize the sprite.
   switch (sprite_sel) {
@@ -433,7 +433,23 @@ draw_face_slice(Layer *me, GContext *ctx, int si) {
 void face_layer_update_callback(Layer *me, GContext *ctx) {
   //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_layer");
   int ti = 0;
-  
+
+  // Draw the face layer.  This is much more complicated than you'd
+  // expect, because we have to support left-to-right and
+  // right-to-left wipes from one face to another, during the
+  // transition animation.  That's not too bad in itself, but in
+  // Basalt we don't have enough RAM to have two full-screen color
+  // bitmaps loaded in memory at the same time (along with all of our
+  // code), and *that* makes this complicated.
+
+  // To solve this, we pre-slice all of the face bitmaps into
+  // NUM_SLICES vertical slices, and we load and draw these slices one
+  // at a time.  During a transition, we display n slices of the old
+  // face, and NUM_SLICES - n - 1 of the new face, with a single slice
+  // that might have parts of both faces visible at once.  So we only
+  // have to double up on that one transitioning slice, which helps
+  // the RAM utilization a great deal.
+
   if (face_transition) {
     // ti ranges from 0 to num_transition_frames over the transition.
     ti = transition_frame;
@@ -448,6 +464,9 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "drawing current frame %d", face_value);
     if (face_value >= 0) {
       graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+
+      // This means we draw all of the slices with the same face;
+      // simple as can be.
       for (int si = 0; si < NUM_SLICES; ++si) {
         load_face_slice(si, face_value);
         draw_face_slice(me, ctx, si);
@@ -492,8 +511,11 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       draw_face_slice(me, ctx, wipe_slice);
       if (wipe_x > destination.origin.x) {
         load_next_face(wipe_slice, face_value);
-        if (next_face_image.bitmap != NULL) {
-          destination.size.w = wipe_x - destination.origin.x;
+        destination.size.w = wipe_x - destination.origin.x;
+        if (next_face_image.bitmap == NULL) {
+          graphics_context_set_fill_color(ctx, GColorBlack);
+          graphics_fill_rect(ctx, destination, 0, GCornerNone);
+        } else {
           graphics_draw_bitmap_in_rect(ctx, next_face_image.bitmap, destination);
         }
       }
@@ -517,12 +539,18 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       // Draw the new face within the wipe_slice, and then draw
       // the visible portion of the old face on top of it.
       load_next_face(wipe_slice, face_value);
-      if (next_face_image.bitmap != NULL) {
+      if (next_face_image.bitmap == NULL) {
+        graphics_context_set_fill_color(ctx, GColorBlack);
+        graphics_fill_rect(ctx, destination, 0, GCornerNone);
+      } else {
         graphics_draw_bitmap_in_rect(ctx, next_face_image.bitmap, destination);
       }
       if (wipe_x > destination.origin.x) {
-        if (visible_face[wipe_slice].face_image.bitmap != NULL) {
-          destination.size.w = wipe_x - destination.origin.x;
+        destination.size.w = wipe_x - destination.origin.x;
+        if (visible_face[wipe_slice].face_image.bitmap == NULL) {
+          graphics_context_set_fill_color(ctx, GColorBlack);
+          graphics_fill_rect(ctx, destination, 0, GCornerNone);
+        } else {
           graphics_draw_bitmap_in_rect(ctx, visible_face[wipe_slice].face_image.bitmap, destination);
         }
       }
@@ -574,14 +602,14 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       if (anim_direction) {
         af = (NUM_TARDIS_FRAMES - 1) - af;
       }
-      GBitmap *tardis = gbitmap_create_with_resource(tardis_frames[af].tardis);
-      if (tardis != NULL) {
+      BitmapWithData tardis = png_bwd_create(tardis_frames[af].tardis);
+      if (tardis.bitmap != NULL) {
         if (tardis_frames[af].flip_x) {
-          flip_bitmap_x(tardis);
+          flip_bitmap_x(tardis.bitmap);
         }
 
-        destination.size.w = gbitmap_get_bounds(tardis).size.w;
-        destination.size.h = gbitmap_get_bounds(tardis).size.h;
+        destination.size.w = gbitmap_get_bounds(tardis.bitmap).size.w;
+        destination.size.h = gbitmap_get_bounds(tardis.bitmap).size.h;
         destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
         destination.origin.x = wipe_x - sprite_cx;
         
@@ -590,13 +618,12 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
 #else  //  PBL_PLATFORM_APLITE
         graphics_context_set_compositing_mode(ctx, GCompOpSet);
 #endif //  PBL_PLATFORM_APLITE
-        graphics_draw_bitmap_in_rect(ctx, tardis, destination);
+        graphics_draw_bitmap_in_rect(ctx, tardis.bitmap, destination);
         
-        gbitmap_destroy(tardis);
+        bwd_destroy(&tardis);
       }
     }
 
-      /*
       // Finally, re-draw the minutes background card on top of the sprite.
       destination.size.w = 50;
       destination.size.h = 31;
@@ -604,7 +631,6 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       destination.origin.y = SCREEN_HEIGHT - destination.size.h;
       graphics_context_set_compositing_mode(ctx, GCompOpOr);
       graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, destination);
-      */
   }
 }
   
@@ -621,7 +647,11 @@ void minute_layer_update_callback(Layer *me, GContext* ctx) {
   box.origin.x = 0;
   box.origin.y = 0;
 
+#ifdef PBL_COLOR
+  graphics_context_set_text_color(ctx, GColorDukeBlue);
+#else  // PBL_COLOR
   graphics_context_set_text_color(ctx, GColorBlack);
+#endif // PBL_COLOR
 
   snprintf(buffer, buffer_size, " %02d", minute_value);
   graphics_draw_text(ctx, buffer, font, box,
@@ -642,8 +672,7 @@ void hour_layer_update_callback(Layer *me, GContext* ctx) {
     box.origin.y = 3;
 
     // Extend the background card to make room for the hours digits.
-    //graphics_context_set_compositing_mode(ctx, GCompOpOr);
-    graphics_context_set_compositing_mode(ctx, GCompOpAssign);
+    graphics_context_set_compositing_mode(ctx, GCompOpOr);
     graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, box);
 
     // Draw the hours digits.
@@ -652,7 +681,11 @@ void hour_layer_update_callback(Layer *me, GContext* ctx) {
     box.origin.x = -15;
     box.origin.y = 0;
     
+#ifdef PBL_COLOR
+    graphics_context_set_text_color(ctx, GColorDukeBlue);
+#else  // PBL_COLOR
     graphics_context_set_text_color(ctx, GColorBlack);
+#endif // PBL_COLOR
     
     snprintf(buffer, buffer_size, "%d", (hour_value ? hour_value : 12));
     graphics_draw_text(ctx, buffer, font, box,
@@ -672,7 +705,11 @@ void second_layer_update_callback(Layer *me, GContext* ctx) {
     box.origin.x = 0;
     box.origin.y = 0;
     
+#ifdef PBL_COLOR
+    graphics_context_set_text_color(ctx, GColorDukeBlue);
+#else  // PBL_COLOR
     graphics_context_set_text_color(ctx, GColorBlack);
+#endif // PBL_COLOR
     graphics_draw_text(ctx, ":", font, box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                        NULL);

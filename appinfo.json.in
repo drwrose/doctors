@@ -35,63 +35,63 @@
       {
         "name": "BATTERY_GAUGE_EMPTY",
         "file": "battery_gauge_empty.png",
-        "type": "png"
+        "type": "pbi"
       },
       {
         "name": "BATTERY_GAUGE_CHARGED",
         "file": "battery_gauge_charged.png",
-        "type": "png"
+        "type": "pbi"
       },
       {
         "name": "BATTERY_GAUGE_MASK",
         "file": "battery_gauge_mask.png",
-        "type": "png"
+        "type": "pbi"
       },
       {
         "name": "CHARGING",
         "file": "charging.png",
-        "type": "png"
+        "type": "pbi"
       },
       {
         "name": "CHARGING_MASK",
         "file": "charging_mask.png",
-        "type": "png"
+        "type": "pbi"
       },
       {
         "name": "BLUETOOTH_DISCONNECTED",
         "file": "bluetooth_disconnected.png",
-        "type": "png"
+        "type": "pbi"
       },
       {
         "name": "BLUETOOTH_CONNECTED",
         "file": "bluetooth_connected.png",
-        "type": "png"
+        "type": "pbi"
       },
       {
         "name": "BLUETOOTH_MASK",
         "file": "bluetooth_mask.png",
-        "type": "png"
+        "type": "pbi"
       },
 %(doctorsImages)s
       {
-        "type": "png",
+        "type": "pbi8",
         "name": "TARDIS_01",
-        "file": "tardis_01_c.png"
+        "file": "tardis_01.png"
       },
       {
-        "type": "png",
+        "type": "pbi8",
         "name": "TARDIS_02",
-        "file": "tardis_02_c.png"
+        "file": "tardis_02.png"
       },
       {
-        "type": "png",
+        "type": "pbi8",
         "name": "TARDIS_03",
-        "file": "tardis_03_c.png"
+        "file": "tardis_03.png"
       },
       {
-        "type": "png",
+        "type": "pbi8",
         "name": "TARDIS_04",
-        "file": "tardis_04_c.png"
+        "file": "tardis_04.png"
       },
       {
         "type": "png",
@@ -101,7 +101,7 @@
       {
         "type": "png",
         "name": "K9",
-        "file": "k9_c.png"
+        "file": "k9.png"
       },
       {
         "type": "png",
@@ -111,7 +111,7 @@
       {
         "type": "png",
         "name": "DALEK",
-        "file": "dalek_c.png"
+        "file": "dalek.png"
       },
       {
         "type": "png",
@@ -119,12 +119,12 @@
         "file": "dalek_mask.png"
       },
       {
-        "type": "png",
+        "type": "pbi",
         "name": "MINS_BACKGROUND",
         "file": "mins_background.png"
       },
       {
-        "type": "png",
+        "type": "pbi",
         "name": "DATE_BACKGROUND",
         "file": "date_background.png"
       }
