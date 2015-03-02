@@ -623,15 +623,16 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
         bwd_destroy(&tardis);
       }
     }
-
-      // Finally, re-draw the minutes background card on top of the sprite.
-      destination.size.w = 50;
-      destination.size.h = 31;
-      destination.origin.x = SCREEN_WIDTH - destination.size.w;
-      destination.origin.y = SCREEN_HEIGHT - destination.size.h;
-      graphics_context_set_compositing_mode(ctx, GCompOpOr);
-      graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, destination);
   }
+  
+  // Finally, re-draw the minutes background card on top of the sprite.
+  GRect destination;
+  destination.size.w = 50;
+  destination.size.h = 31;
+  destination.origin.x = SCREEN_WIDTH - destination.size.w;
+  destination.origin.y = SCREEN_HEIGHT - destination.size.h;
+  graphics_context_set_compositing_mode(ctx, GCompOpOr);
+  graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, destination);
 }
   
 void minute_layer_update_callback(Layer *me, GContext* ctx) {
