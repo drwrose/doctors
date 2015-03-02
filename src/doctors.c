@@ -579,6 +579,11 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
         if (tardis_frames[af].flip_x) {
           flip_bitmap_x(tardis);
         }
+
+        destination.size.w = gbitmap_get_bounds(tardis).size.w;
+        destination.size.h = gbitmap_get_bounds(tardis).size.h;
+        destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
+        destination.origin.x = wipe_x - sprite_cx;
         
 #ifdef PBL_PLATFORM_APLITE
         graphics_context_set_compositing_mode(ctx, GCompOpOr);
