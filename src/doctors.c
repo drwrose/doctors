@@ -502,6 +502,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
       destination.origin.x = wipe_x - sprite_cx;
       //graphics_context_set_compositing_mode(ctx, GCompOpOr);
+      graphics_context_set_compositing_mode(ctx, GCompOpSet);
       graphics_draw_bitmap_in_rect(ctx, sprite.bitmap, destination);
 
     } else if (sprite_sel == SPRITE_TARDIS) {
