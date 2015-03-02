@@ -9,10 +9,7 @@
   "versionCode": 1,
   "versionLabel": "2.15",
   "sdkVersion": "3",
-  "targetPlatforms": [
-    "aplite",
-    "basalt"
-  ],
+  "targetPlatforms": [ %(targetPlatforms)s ],
   "watchapp": {
     "watchface": true
   },

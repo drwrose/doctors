@@ -19,6 +19,9 @@ Options:
     -s slices
         Specifies the number of vertical slices of each face.
 
+    -p platform[,platform]
+        Specifies the build platform (aplite and/or basalt).
+
     -d
         Compile for debugging.  Specifically this enables "fast time",
         so the hands move quickly about the face of the watch.  It
@@ -45,7 +48,14 @@ doctorsImage = """
         "type": "png"
       },
 """
-        
+
+def enquoteStrings(strings):
+    """ Accepts a list of strings, returns a list of strings with
+    embedded quotation marks. """
+    quoted = []
+    for str in strings:
+        quoted.append('"%s"' % (str))
+    return quoted
 
 def makeDoctors():
     """ Makes the resource string for the list of doctors images. """
@@ -114,24 +124,31 @@ def configWatch():
     resource = open('%s/appinfo.json' % (rootDir), 'w')
 
     print >> resource, resourceIn % {
+        'targetPlatforms' : ', '.join(enquoteStrings(targetPlatforms)),
         'doctorsImages' : doctorsImages,
         }
 
 
 # Main.
 try:
-    opts, args = getopt.getopt(sys.argv[1:], 's:dh')
+    opts, args = getopt.getopt(sys.argv[1:], 's:p:dh')
 except getopt.error, msg:
     usage(1, msg)
 
 numSlices = 3
 compileDebugging = False
+targetPlatforms = [ ]
 for opt, arg in opts:
     if opt == '-s':
         numSlices = int(arg)
+    elif opt == '-p':
+        targetPlatforms += arg.split(',')
     elif opt == '-d':
         compileDebugging = True
     elif opt == '-h':
         usage(0)
 
+if not targetPlatforms:
+    targetPlatforms = [ "aplite", "basalt" ]
+    
 configWatch()

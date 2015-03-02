@@ -1,5 +1,5 @@
 import sys, zipfile, json, cStringIO
-sys.path.append('/Users/drose/pebble-dev/PebbleSDK-2.2/Pebble/tools')
+sys.path.append('/Users/drose/pebble-dev/PebbleSDK-current/Pebble/common/tools')
 import pbpack
 
 #pbwFilename = '/Users/drose/Downloads/doctors (1).pbw'
