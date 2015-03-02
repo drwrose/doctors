@@ -76,24 +76,37 @@ def makeDoctors():
     doctorsIds = ''
     for basename in basenames:
         doctorsIds += '{\n'
-        source = PIL.Image.open('%s/%s.png' % (resourcesDir, basename))
+        sourceFilename = '%s/%s.png' % (resourcesDir, basename)
+        source = PIL.Image.open(sourceFilename)
         assert source.size == (screenWidth, screenHeight)
+
+        mods = {}
+        for mod in [ '~color' ]:
+            modFilename = '%s/%s%s.png' % (resourcesDir, basename, mod)
+            if os.path.exists(modFilename):
+                mods[mod] = PIL.Image.open(modFilename)
+                assert mods[mod].size == (screenWidth, screenHeight)
         
         for slice in range(numSlices):
             # Make a vertical slice of the image.
             xf = slicePoints[slice]
             xt = slicePoints[slice + 1]
             box = (xf, 0, xt, screenHeight)
+            resource_base = '%s_%s' % (basename.upper(), slice + 1)
 
             image = source.crop(box)
             filename = 'slices/%s_%s_of_%s.png' % (basename, slice + 1, numSlices)
-            resource_base = '%s_%s' % (basename.upper(), slice + 1)
             image.save('%s/%s' % (resourcesDir, filename))
-            
+
             doctorsImages += doctorsImage % {
             'resource_base' : resource_base,
             'filename' : filename,
             }
+
+            for mod, modImage in mods.items():
+                image = modImage.crop(box)
+                filename = 'slices/%s_%s_of_%s%s.png' % (basename, slice + 1, numSlices, mod)
+                image.save('%s/%s' % (resourcesDir, filename))
 
             doctorsIds += 'RESOURCE_ID_%s, ' % (resource_base)
         doctorsIds += '},\n'
