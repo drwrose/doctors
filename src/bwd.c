@@ -304,20 +304,17 @@ rle_bwd_create(int resource_id) {
     
     // Now the values start at vo; this means the original rb buffer
     // gets shortened to that point, and we create a new rb_vo buffer
-    // to read past that point.
+    // to read the values data which begins at that point.
     rbuffer_set_limit(&rb, vo);
     RBuffer rb_vo;
     rbuffer_init(resource_id, &rb_vo, vo);
 
     // Begin reading.
     int count = rl2unpacker_getc(&rl2);
+    //int value = 0;
     while (count != EOF) {
       int value = rbuffer_getc(&rb_vo);
-      if ((value & 0xc0) != 0) {
-        value = 0xff;
-      } else {
-        value = 0xc0;
-      }
+      //value = 0xff - value;
       while (count > 0 && dp < dp_stop) {
         assert(dp < dp_stop);
         *dp = value;

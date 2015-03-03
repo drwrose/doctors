@@ -99,7 +99,11 @@ def generate_rle_c(source):
     while True:
         while current == next:
             count += 1
-            next = source.next()
+            try:
+                next = source.next()
+            except StopIteration:
+                yield (current, count)
+                raise StopIteration
         yield (current, count)
         current = next
         count = 0
@@ -297,7 +301,7 @@ def make_rle_c_image(rleFilename, image):
     fullSize = w * h
 
     values_rle = generate_rle_c(generate_pixels_c(image))
-    values, rle = zip(*values_rle)
+    values, rle = zip(*list(values_rle))
     rle = list(rle)
 
     # Find the best n for this image.
@@ -321,9 +325,6 @@ def make_rle_c_image(rleFilename, image):
     assert(vo < 0x10000)
     vo_lo = vo & 0xff
     vo_hi = (vo >> 8) & 0xff
-
-    print rle[:20]
-    print values[:20]
 
     # The third byte is 0 to indicate an 8-bit ARGB file.
     rle = open(rleFilename, 'wb')
@@ -416,10 +417,10 @@ def unpack_rle_file(rleFilename):
         for count in rle:
             value = values[vi]
             vi += 1
-            a = (value & 0xc0)
-            r = ((value << 2) & 0xc0)
-            g = ((value << 4) & 0xc0)
-            b = ((value << 6) & 0xc0)
+            a = ((value >> 6) & 0x03) * 0x55
+            r = ((value >> 4) & 0x03) * 0x55
+            g = ((value >> 2) & 0x03) * 0x55
+            b = ((value) & 0x03) * 0x55
             value = (r, g, b, a)
             pixels += [value] * count
 
@@ -428,10 +429,11 @@ def unpack_rle_file(rleFilename):
         pi = 0
         for yi in range(height):
             for xi in range(width):
-                if pi >= len(pixels):
-                    break
+                assert pi < len(pixels)
                 image.putpixel((xi, yi), pixels[pi])
                 pi += 1
+
+        assert pi == len(pixels)
         return image
 
 def unpack_rle(filename, prefix = 'resources/'):

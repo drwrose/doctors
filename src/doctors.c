@@ -367,7 +367,7 @@ void start_transition(int face_new, bool for_startup) {
     sprite_mask = png_bwd_create(RESOURCE_ID_DALEK_MASK);
 #endif  // PBL_PLATFORM_APLITE
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "getting RESOURCE_ID_DALEK");
-    sprite = rle_bwd_create(RESOURCE_ID_DALEK);
+    sprite = png_bwd_create(RESOURCE_ID_DALEK);
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "got RESOURCE_ID_DALEK = %p", sprite.bitmap);
     if (sprite.bitmap != NULL) {
       sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
@@ -437,7 +437,7 @@ draw_face_slice(Layer *me, GContext *ctx, int si) {
 void face_layer_update_callback(Layer *me, GContext *ctx) {
   // hack
   {
-    BitmapWithData sprite = rle_bwd_create(RESOURCE_ID_DALEK);
+    BitmapWithData sprite = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
     if (sprite.bitmap != NULL) {
       GRect destination = layer_get_frame(me);
       graphics_draw_bitmap_in_rect(ctx, sprite.bitmap, destination);
@@ -865,8 +865,7 @@ void handle_init() {
   app_message_register_inbox_dropped(dropped_config_handler);
 
 #define INBOX_MESSAGE_SIZE 200
-  //#define OUTBOX_MESSAGE_SIZE 50
-#define OUTBOX_MESSAGE_SIZE 500
+#define OUTBOX_MESSAGE_SIZE 50
 
 #ifndef NDEBUG
   uint32_t inbox_max = app_message_inbox_size_maximum();

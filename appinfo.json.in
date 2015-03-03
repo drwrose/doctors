@@ -74,49 +74,49 @@
       },
 %(doctorsImages)s
       {
-        "type": "pbi8",
+        "type": "pbi",
         "name": "TARDIS_01",
         "file": "tardis_01.png"
       },
       {
-        "type": "pbi8",
+        "type": "pbi",
         "name": "TARDIS_02",
         "file": "tardis_02.png"
       },
       {
-        "type": "pbi8",
+        "type": "pbi",
         "name": "TARDIS_03",
         "file": "tardis_03.png"
       },
       {
-        "type": "pbi8",
+        "type": "pbi",
         "name": "TARDIS_04",
         "file": "tardis_04.png"
       },
       {
-        "type": "png",
+        "type": "pbi",
         "name": "TARDIS_MASK",
         "file": "tardis_masks.png"
       },
       {
-        "type": "png",
+        "type": "pbi",
         "name": "K9",
         "file": "k9.png"
       },
       {
-        "type": "png",
+        "type": "pbi",
         "name": "K9_MASK",
         "file": "k9_mask.png"
       },
       {
-        "type": "raw",
+        "type": "pbi",
         "name": "DALEK",
-        "file": "dalek.rle"
+        "file": "dalek.png"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "DALEK_MASK",
-        "file": "dalek_mask.png"
+        "file": "dalek_mask.rle"
       },
       {
         "type": "pbi",

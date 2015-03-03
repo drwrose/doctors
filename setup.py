@@ -47,7 +47,7 @@ doctorsImage = """
       {
         "name": "%(resource_base)s",
         "file": "%(filename)s",
-        "type": "png"
+        "type": "pbi"
       },
 """
 
