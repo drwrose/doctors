@@ -383,25 +383,90 @@ def make_rle_trans(filename, prefix = 'resources/', useRle = True):
         print filename
         return rleWhiteFilename, rleBlackFilename, 'png'
 
+def unpack_rle_file(rleFilename):
+    rb = open(rleFilename, 'rb')
+    width = ord(rb.read(1))
+    height = ord(rb.read(1))
+    stride = ord(rb.read(1))
+    n = ord(rb.read(1))
+    do_unscreen = ((n & 0x80) != 0)
+    data_8bit = (stride == 0)
+    if data_8bit:
+        stride = width
+    n = n & 0x7f
+
+    if data_8bit:
+        # Unpack an 8-bit ARGB file.
+
+        # Get the offset into the file at which the values start.
+        vo_lo = ord(rb.read(1))
+        vo_hi = ord(rb.read(1))
+        vo = (vo_hi << 8) | vo_lo
+
+        print "vo = %x" % (vo)
+
+        data = rb.read(vo - 6)
+        values = map(ord, rb.read())
+
+        unpacker = Rl2Unpacker(data, n)
+        rle = unpacker.getList()
+
+        pixels = []
+        vi = 0
+        for count in rle:
+            value = values[vi]
+            vi += 1
+            a = (value & 0xc0)
+            r = ((value << 2) & 0xc0)
+            g = ((value << 4) & 0xc0)
+            b = ((value << 6) & 0xc0)
+            value = (r, g, b, a)
+            pixels += [value] * count
+
+        image = PIL.Image.new('RGBA', (width, height), 0)
+        
+        pi = 0
+        for yi in range(height):
+            for xi in range(width):
+                if pi >= len(pixels):
+                    break
+                image.putpixel((xi, yi), pixels[pi])
+                pi += 1
+        return image
+
+def unpack_rle(filename, prefix = 'resources/'):
+    basename = os.path.splitext(filename)[0]
+    pngFilename = basename + '_unpacked.png'
+    image = unpack_rle_file(prefix + filename)
+
+    print pngFilename
+    image.save(pngFilename)
+
+
 if __name__ == '__main__':
     # Main.
     import getopt
 
-    makeTrans = False
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'th')
+        opts, args = getopt.getopt(sys.argv[1:], 'tuh')
     except getopt.error, msg:
         usage(1, msg)
 
+    makeTrans = False
+    doUnpack = False
     for opt, arg in opts:
         if opt == '-t':
             makeTrans = True
+        elif opt == '-u':
+            doUnpack = True
         elif opt == '-h':
             usage(0)
 
     print args
     for filename in args:
-        if makeTrans:
+        if doUnpack:
+            unpack_rle(filename, prefix = '')
+        elif makeTrans:
             make_rle_trans(filename, prefix = '')
         else:
             make_rle(filename, prefix = '')
