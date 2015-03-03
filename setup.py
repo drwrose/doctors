@@ -47,7 +47,7 @@ doctorsImage = """
       {
         "name": "%(resource_base)s",
         "file": "%(filename)s",
-        "type": "pbi"
+        "type": "png"
       },
 """
 
@@ -100,6 +100,7 @@ def makeDoctors():
             filename = 'slices/%s_%s_of_%s.png' % (basename, slice + 1, numSlices)
             image.save('%s/%s' % (resourcesDir, filename))
 
+            #rleFilename = 'slices/%s_%s_of_%s.rle' % (basename, slice + 1, numSlices)
             doctorsImages += doctorsImage % {
             'resource_base' : resource_base,
             'filename' : filename,

@@ -328,13 +328,11 @@ void start_transition(int face_new, bool for_startup) {
     sprite_sel = (rand() % NUM_SPRITES);
     anim_direction = (rand() % 2) != 0;
   }
-  wipe_direction = true;  // hack
-  sprite_sel = SPRITE_DALEK; // hack
 
   // Initialize the sprite.
   switch (sprite_sel) {
   case SPRITE_TARDIS:
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition TARDIS, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
+    //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition TARDIS, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
 #ifdef PBL_PLATFORM_APLITE
     sprite_mask = png_bwd_create(RESOURCE_ID_TARDIS_MASK);
 #endif  // PBL_PLATFORM_APLITE
@@ -344,7 +342,7 @@ void start_transition(int face_new, bool for_startup) {
     break;
 
   case SPRITE_K9:
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition K9, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
+    //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition K9, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
 #ifdef PBL_PLATFORM_APLITE
     sprite_mask = png_bwd_create(RESOURCE_ID_K9_MASK);
 #endif  // PBL_PLATFORM_APLITE
@@ -362,13 +360,11 @@ void start_transition(int face_new, bool for_startup) {
     break;
 
   case SPRITE_DALEK:
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition DALEK, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
+    //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition DALEK, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
 #ifdef PBL_PLATFORM_APLITE
     sprite_mask = png_bwd_create(RESOURCE_ID_DALEK_MASK);
 #endif  // PBL_PLATFORM_APLITE
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "getting RESOURCE_ID_DALEK");
     sprite = png_bwd_create(RESOURCE_ID_DALEK);
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "got RESOURCE_ID_DALEK = %p", sprite.bitmap);
     if (sprite.bitmap != NULL) {
       sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
     }
@@ -391,25 +387,25 @@ void start_transition(int face_new, bool for_startup) {
 void
 load_face_slice(int si, int face_value) {
   if (visible_face[si].face_value != face_value) {
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "load_face_slice(%d, %d)", si, face_value);
     bwd_destroy(&(visible_face[si].face_image));
     visible_face[si].face_value = face_value;
     int resource_id = face_resource_ids[face_value][si];
-    //visible_face[si].face_image = png_bwd_create(resource_id);
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded %p", visible_face[si].face_image.bitmap);
+    visible_face[si].face_image = png_bwd_create(resource_id);
   }
 }
 
 void
 load_next_face(int si, int face_value) {
- if (next_face_value != face_value || next_face_slice != si) {
-   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "load_next_face(%d, %d)", si, face_value);
+  if (next_face_value != face_value || next_face_slice != si) {
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "load_next_face(%d, %d)", si, face_value);
     bwd_destroy(&next_face_image);
     next_face_value = face_value;
     next_face_slice = si;
     int resource_id = face_resource_ids[face_value][si];
-    //next_face_image = png_bwd_create(resource_id);
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded %p", visible_face[si].face_image.bitmap);
+    next_face_image = png_bwd_create(resource_id);
+    if (next_face_image.bitmap != NULL) {
+      app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded %p, format = %d", next_face_image.bitmap, gbitmap_get_format(next_face_image.bitmap));
+    }
   }
 }
 
@@ -426,26 +422,13 @@ draw_face_slice(Layer *me, GContext *ctx, int si) {
     // region.  This is a fallback.
     graphics_context_set_fill_color(ctx, GColorBlack);
     graphics_fill_rect(ctx, destination, 0, GCornerNone);
-    //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "not drawing slice %d", si);
   } else {
     // The bitmap was loaded successfully, so draw it.
     graphics_draw_bitmap_in_rect(ctx, visible_face[si].face_image.bitmap, destination);
-    //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "drawing slice %d", si);
   }
 }
 
 void face_layer_update_callback(Layer *me, GContext *ctx) {
-  // hack
-  {
-    BitmapWithData sprite = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
-    if (sprite.bitmap != NULL) {
-      GRect destination = layer_get_frame(me);
-      graphics_draw_bitmap_in_rect(ctx, sprite.bitmap, destination);
-      bwd_destroy(&sprite);
-      return;
-    }
-  }
-  
   //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_layer");
   int ti = 0;
 
@@ -476,7 +459,6 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
 
   if (!face_transition) {
     // The simple case: no transition, so just hold the current frame.
-    //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "drawing current frame %d", face_value);
     if (face_value >= 0) {
       graphics_context_set_compositing_mode(ctx, GCompOpAssign);
 
@@ -939,7 +921,7 @@ void handle_init() {
   init_battery_gauge(root_layer, 125, 0, false, true);
   init_bluetooth_indicator(root_layer, 0, 0, false, true);
 
-  //  start_transition(startup_time->tm_hour % 12, true);
+  start_transition(startup_time->tm_hour % 12, true);
 
   apply_config();
 }

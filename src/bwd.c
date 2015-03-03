@@ -52,7 +52,6 @@ void bwd_destroy(BitmapWithData *bwd) {
 // The returned bitmap must be released with bwd_destroy().
 BitmapWithData png_bwd_create(int resource_id) {
   GBitmap *image = gbitmap_create_with_resource(resource_id);
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "getting resource %d, image = %p, memory used, free is %d, %d", resource_id, image, heap_bytes_used(), heap_bytes_free());
   return bwd_create(image, NULL);
 }
 
@@ -61,7 +60,6 @@ BitmapWithData png_bwd_create(int resource_id) {
 // Here's the dummy implementation of rle_bwd_create(), if SUPPORT_RLE
 // is not defined.
 BitmapWithData rle_bwd_create(int resource_id) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "bogus rle_bwd_create(%d)", resource_id);
   return png_bwd_create(resource_id);
 }
 
@@ -252,7 +250,7 @@ void unscreen_bitmap(GBitmap *image) {
 // the program that generates these rle sequences.
 BitmapWithData
 rle_bwd_create(int resource_id) {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "rle_bwd_create(%d)", resource_id);
+  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "rle_bwd_create(%d)", resource_id);
   
   RBuffer rb;
   rbuffer_init(resource_id, &rb, 0);
@@ -262,12 +260,19 @@ rle_bwd_create(int resource_id) {
   int n = rbuffer_getc(&rb);
   int do_unscreen = (n & 0x80);
   int data_8bit = (stride == 0);
+  size_t vo = 0;
+  
   if (data_8bit) {
+    // If we're unpacking an 8bit file, we also need to get the start
+    // of the values array from the header.
     stride = width;
-  }
-  n = n & 0x7f;
 
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "decoding bitmap of size %d x %d, data_8bit = %d", width, height, data_8bit);
+    uint8_t vo_lo = rbuffer_getc(&rb);
+    uint8_t vo_hi = rbuffer_getc(&rb);
+    vo = (vo_hi << 8) | vo_lo;
+  }
+  
+  n = n & 0x7f;
 
   Rl2Unpacker rl2;
   rl2unpacker_init(&rl2, &rb, n);
@@ -294,13 +299,6 @@ rle_bwd_create(int resource_id) {
   if (data_8bit) {
     // Unpack an 8-bit ARGB file.
     bitmap_header->info_flags = 0x1002;  // Indicate this is 8-bit ARGB.
-
-    // Get the offset into the file at which the values start.
-    uint8_t vo_lo = rbuffer_getc(&rb);
-    uint8_t vo_hi = rbuffer_getc(&rb);
-    size_t vo = (vo_hi << 8) | vo_lo;
-
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "vo = %d", vo);
     
     // Now the values start at vo; this means the original rb buffer
     // gets shortened to that point, and we create a new rb_vo buffer
@@ -311,10 +309,8 @@ rle_bwd_create(int resource_id) {
 
     // Begin reading.
     int count = rl2unpacker_getc(&rl2);
-    //int value = 0;
     while (count != EOF) {
       int value = rbuffer_getc(&rb_vo);
-      //value = 0xff - value;
       while (count > 0 && dp < dp_stop) {
         assert(dp < dp_stop);
         *dp = value;
@@ -378,6 +374,13 @@ rle_bwd_create(int resource_id) {
 
   assert(dp == dp_stop);
   rbuffer_deinit(&rb);
+
+  /*
+  FILE *file = fopen("test.pbi8", "wb");
+  fwrite(bitmap, 1, total_size, file);
+  fclose(file);
+  */
+  
   GBitmap *image = gbitmap_create_with_data(bitmap);
   assert(image != NULL);
   if (do_unscreen) {

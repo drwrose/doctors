@@ -1,0 +1,57 @@
+#include "test_bwd.h"
+#include "bwd.h"
+
+// Function bodies for the above.  We include them here in the .h file
+// because this is a test file, after all, and this makes it easier to
+// avoid accidentally compiling this file in the normal use case.
+void app_log(uint8_t log_level, const char* src_filename, int src_line_number, const char* fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  fprintf(stderr, "%s:%d ", src_filename, src_line_number);
+  vfprintf(stderr, fmt, ap);
+  fprintf(stderr, "\n");
+  va_end(ap);
+}
+
+ResHandle
+resource_get_handle(int resource_id) {
+  FILE *file = fopen("../resources/dalek_mask~color.rle", "rb");
+  assert(file != NULL);
+  fseek(file, 0, SEEK_END);
+  size_t size = (size_t)ftell(file);
+  fseek(file, 0, SEEK_SET);
+
+  uint8_t *data = malloc(size);
+  size_t bytes_read = fread(data, 1, size, file);
+  assert(bytes_read == size);
+  fprintf(stderr, "read %zu bytes: %02x %02x %02x %02x\n", bytes_read, data[0], data[1], data[2], data[3]);
+  fclose(file);
+
+  ResHandle h;
+  h._size = size;
+  h._data = data;
+  return h;
+}
+
+size_t
+resource_load_byte_range(ResHandle h, uint32_t start_offset, uint8_t *buffer, size_t num_bytes) {
+  assert((int)start_offset >= 0);
+  assert((int)num_bytes > 0);
+  assert(start_offset < h._size);
+
+  size_t bytes_read = num_bytes;
+  if (start_offset + bytes_read > h._size) {
+    bytes_read = h._size - start_offset;
+  }
+  
+  memcpy(buffer, h._data + start_offset, bytes_read);
+  fprintf(stderr, "resource_load_byte_range(h, %u, b, %zu) -> %zu\n", start_offset, num_bytes, bytes_read);
+  fprintf(stderr, "returning %02x %02x %02x %02x\n", buffer[0], buffer[1], buffer[2], buffer[3]);
+  return bytes_read;
+}
+
+int
+main(int argc, char *argv[]) {
+  rle_bwd_create(0);
+  return 0;
+}
