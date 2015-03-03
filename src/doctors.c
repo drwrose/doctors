@@ -162,7 +162,7 @@ void flip_bitmap_x(GBitmap *image) {
   int stride = gbitmap_get_bytes_per_row(image);
   assert(stride >= width_bytes);
 
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "flip_bitmap_x, width_bytes = %d, stride=%d, format=%d", width_bytes, stride, gbitmap_get_format(image));
+  //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "flip_bitmap_x, width_bytes = %d, stride=%d, format=%d", width_bytes, stride, gbitmap_get_format(image));
 
   uint8_t *data = gbitmap_get_data(image);
 
@@ -349,6 +349,7 @@ void start_transition(int face_new, bool for_startup) {
     sprite = png_bwd_create(RESOURCE_ID_K9);
     if (sprite.bitmap != NULL) {
       sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
+      //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "k9 loaded %p, format = %d", sprite.bitmap, gbitmap_get_format(sprite.bitmap));
     }
     sprite_cx = 41;
 
@@ -367,6 +368,7 @@ void start_transition(int face_new, bool for_startup) {
     sprite = png_bwd_create(RESOURCE_ID_DALEK);
     if (sprite.bitmap != NULL) {
       sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
+      //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "dalek loaded %p, format = %d", sprite.bitmap, gbitmap_get_format(sprite.bitmap));
     }
     sprite_cx = 74;
 
@@ -397,14 +399,13 @@ load_face_slice(int si, int face_value) {
 void
 load_next_face(int si, int face_value) {
   if (next_face_value != face_value || next_face_slice != si) {
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "load_next_face(%d, %d)", si, face_value);
     bwd_destroy(&next_face_image);
     next_face_value = face_value;
     next_face_slice = si;
     int resource_id = face_resource_ids[face_value][si];
     next_face_image = png_bwd_create(resource_id);
     if (next_face_image.bitmap != NULL) {
-      app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded %p, format = %d", next_face_image.bitmap, gbitmap_get_format(next_face_image.bitmap));
+      //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded face %d,%d %p, format = %d", si, face_value, next_face_image.bitmap, gbitmap_get_format(next_face_image.bitmap));
     }
   }
 }
@@ -592,9 +593,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
     } else if (sprite_sel == SPRITE_TARDIS) {
       // Tardis case.  Since it's animated, but we don't have enough
       // RAM to hold all the frames at once, we have to load one
-      // frame at a time as we need it.  We don't use RLE encoding
-      // on the Tardis frames in an attempt to cut down on needless
-      // CPU work while playing this animation.
+      // frame at a time as we need it.
       int af = ti % NUM_TARDIS_FRAMES;
       if (anim_direction) {
         af = (NUM_TARDIS_FRAMES - 1) - af;
@@ -604,6 +603,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
         if (tardis_frames[af].flip_x) {
           flip_bitmap_x(tardis.bitmap);
         }
+        //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "tardis loaded %p, format = %d", sprite.bitmap, gbitmap_get_format(tardis.bitmap));
 
         destination.size.w = gbitmap_get_bounds(tardis.bitmap).size.w;
         destination.size.h = gbitmap_get_bounds(tardis.bitmap).size.h;

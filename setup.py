@@ -86,8 +86,25 @@ def makeDoctors():
         for mod in [ '~color' ]:
             modFilename = '%s/%s%s.png' % (resourcesDir, basename, mod)
             if os.path.exists(modFilename):
-                mods[mod] = PIL.Image.open(modFilename)
-                assert mods[mod].size == (screenWidth, screenHeight)
+                modImage = PIL.Image.open(modFilename)
+                assert modImage.size == (screenWidth, screenHeight)
+                ## if modImage.mode == 'P':
+                ##     # Simplify the palette for optimal run-time loading.
+                ##     palette = modImage.getpalette()
+                ##     hist = modImage.histogram()
+                ##     numColors = len(hist) - hist.count(0)
+                ##     clip = None
+                ##     if numColors <= 2:
+                ##         clip = 2
+                ##     elif numColors <= 4:
+                ##         clip = 4
+                ##     elif numColors <= 16:
+                ##         clip = 16
+                ##     if clip is not None:
+                ##         palette = palette[:3*clip] + [0xf0, 0xd0, 0x80] * (256 - clip)
+                ##         modImage.putpalette(palette)
+                
+                mods[mod] = modImage
         
         for slice in range(numSlices):
             # Make a vertical slice of the image.
@@ -154,7 +171,8 @@ except getopt.error, msg:
 
 numSlices = 3
 compileDebugging = False
-supportRle = True
+#supportRle = True
+supportRle = False
 targetPlatforms = [ ]
 for opt, arg in opts:
     if opt == '-s':
