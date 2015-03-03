@@ -109,9 +109,9 @@
         "file": "k9_mask.png"
       },
       {
-        "type": "png",
+        "type": "raw",
         "name": "DALEK",
-        "file": "dalek.png"
+        "file": "dalek.rle"
       },
       {
         "type": "png",

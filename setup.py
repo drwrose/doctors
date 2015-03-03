@@ -22,10 +22,12 @@ Options:
     -p platform[,platform]
         Specifies the build platform (aplite and/or basalt).
 
+    -x
+        Perform no RLE compression of images.
+
     -d
         Compile for debugging.  Specifically this enables "fast time",
-        so the hands move quickly about the face of the watch.  It
-        also enables logging.
+        so the faces change quickly.  It also enables logging.
         
 """
 
@@ -45,7 +47,7 @@ doctorsImage = """
       {
         "name": "%(resource_base)s",
         "file": "%(filename)s",
-        "type": "pbi8"
+        "type": "png"
       },
 """
 
@@ -123,6 +125,7 @@ def configWatch():
     print >> config, configIn % {
         'doctorsIds' : doctorsIds,
         'numSlices' : numSlices,
+        'supportRle' : int(supportRle),
         'compileDebugging' : int(compileDebugging),
         }
 
@@ -144,12 +147,13 @@ def configWatch():
 
 # Main.
 try:
-    opts, args = getopt.getopt(sys.argv[1:], 's:p:dh')
+    opts, args = getopt.getopt(sys.argv[1:], 's:p:dxh')
 except getopt.error, msg:
     usage(1, msg)
 
 numSlices = 3
 compileDebugging = False
+supportRle = True
 targetPlatforms = [ ]
 for opt, arg in opts:
     if opt == '-s':
@@ -158,6 +162,8 @@ for opt, arg in opts:
         targetPlatforms += arg.split(',')
     elif opt == '-d':
         compileDebugging = True
+    elif opt == '-x':
+        supportRle = False
     elif opt == '-h':
         usage(0)
 

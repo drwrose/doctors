@@ -1,4 +1,7 @@
 #include <pebble.h>
+#include <setjmp.h>
+
+#include "doctors.h"
 #include "assert.h"
 #include "bluetooth_indicator.h"
 #include "battery_gauge.h"
@@ -8,13 +11,6 @@
 #include "../resources/lang_table.c"
 #include "../resources/generated_config.h"
 #include "../resources/generated_config.c"
-
-#ifdef PBL_PLATFORM_APLITE
-#define gbitmap_get_bounds(bm) ((bm)->bounds)
-#define gbitmap_get_bytes_per_row(bm) ((bm)->row_size_bytes)
-#define gbitmap_get_data(bm) ((bm)->addr)
-#define gbitmap_get_format(bm) (0)
-#endif
 
 #define SCREEN_WIDTH 144
 #define SCREEN_HEIGHT 168
@@ -332,13 +328,15 @@ void start_transition(int face_new, bool for_startup) {
     sprite_sel = (rand() % NUM_SPRITES);
     anim_direction = (rand() % 2) != 0;
   }
+  wipe_direction = true;  // hack
+  sprite_sel = SPRITE_DALEK; // hack
 
   // Initialize the sprite.
   switch (sprite_sel) {
   case SPRITE_TARDIS:
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition TARDIS, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
 #ifdef PBL_PLATFORM_APLITE
-    sprite_mask = rle_bwd_create(RESOURCE_ID_TARDIS_MASK);
+    sprite_mask = png_bwd_create(RESOURCE_ID_TARDIS_MASK);
 #endif  // PBL_PLATFORM_APLITE
     //sprite_width = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
     sprite_width = 112;
@@ -348,26 +346,32 @@ void start_transition(int face_new, bool for_startup) {
   case SPRITE_K9:
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition K9, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
 #ifdef PBL_PLATFORM_APLITE
-    sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
+    sprite_mask = png_bwd_create(RESOURCE_ID_K9_MASK);
 #endif  // PBL_PLATFORM_APLITE
-    sprite = rle_bwd_create(RESOURCE_ID_K9);
-    sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
+    sprite = png_bwd_create(RESOURCE_ID_K9);
+    if (sprite.bitmap != NULL) {
+      sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
+    }
     sprite_cx = 41;
 
     if (wipe_direction) {
       flip_bitmap_x(sprite_mask.bitmap);
       flip_bitmap_x(sprite.bitmap);
-      sprite_cx = gbitmap_get_bounds(sprite.bitmap).size.w - sprite_cx;
+      sprite_cx = sprite_width - sprite_cx;
     }
     break;
 
   case SPRITE_DALEK:
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition DALEK, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
 #ifdef PBL_PLATFORM_APLITE
-    sprite_mask = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
+    sprite_mask = png_bwd_create(RESOURCE_ID_DALEK_MASK);
 #endif  // PBL_PLATFORM_APLITE
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "getting RESOURCE_ID_DALEK");
     sprite = rle_bwd_create(RESOURCE_ID_DALEK);
-    sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "got RESOURCE_ID_DALEK = %p", sprite.bitmap);
+    if (sprite.bitmap != NULL) {
+      sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
+    }
     sprite_cx = 74;
 
     if (wipe_direction) {
@@ -386,12 +390,12 @@ void start_transition(int face_new, bool for_startup) {
 // Ensures the bitmap for face_value is loaded for slice si.
 void
 load_face_slice(int si, int face_value) {
- if (visible_face[si].face_value != face_value) {
-   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "load_face_slice(%d, %d)", si, face_value);
+  if (visible_face[si].face_value != face_value) {
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "load_face_slice(%d, %d)", si, face_value);
     bwd_destroy(&(visible_face[si].face_image));
     visible_face[si].face_value = face_value;
     int resource_id = face_resource_ids[face_value][si];
-    visible_face[si].face_image = rle_bwd_create(resource_id);
+    //visible_face[si].face_image = png_bwd_create(resource_id);
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded %p", visible_face[si].face_image.bitmap);
   }
 }
@@ -404,7 +408,7 @@ load_next_face(int si, int face_value) {
     next_face_value = face_value;
     next_face_slice = si;
     int resource_id = face_resource_ids[face_value][si];
-    next_face_image = rle_bwd_create(resource_id);
+    //next_face_image = png_bwd_create(resource_id);
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded %p", visible_face[si].face_image.bitmap);
   }
 }
@@ -431,6 +435,17 @@ draw_face_slice(Layer *me, GContext *ctx, int si) {
 }
 
 void face_layer_update_callback(Layer *me, GContext *ctx) {
+  // hack
+  {
+    BitmapWithData sprite = rle_bwd_create(RESOURCE_ID_DALEK);
+    if (sprite.bitmap != NULL) {
+      GRect destination = layer_get_frame(me);
+      graphics_draw_bitmap_in_rect(ctx, sprite.bitmap, destination);
+      bwd_destroy(&sprite);
+      return;
+    }
+  }
+  
   //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_layer");
   int ti = 0;
 
@@ -849,18 +864,27 @@ void handle_init() {
   app_message_register_inbox_received(receive_config_handler);
   app_message_register_inbox_dropped(dropped_config_handler);
 
+#define INBOX_MESSAGE_SIZE 200
+  //#define OUTBOX_MESSAGE_SIZE 50
+#define OUTBOX_MESSAGE_SIZE 500
+
+#ifndef NDEBUG
   uint32_t inbox_max = app_message_inbox_size_maximum();
   uint32_t outbox_max = app_message_outbox_size_maximum();
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "available message space %u, %u", (unsigned int)inbox_max, (unsigned int)outbox_max);
-  if (inbox_max > 300) {
-    inbox_max = 300;
+  if (inbox_max > INBOX_MESSAGE_SIZE) {
+    inbox_max = INBOX_MESSAGE_SIZE;
   }
-  if (outbox_max > 300) {
-    outbox_max = 300;
+  if (outbox_max > OUTBOX_MESSAGE_SIZE) {
+    outbox_max = OUTBOX_MESSAGE_SIZE;
   }
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "app_message_open(%u, %u)", (unsigned int)inbox_max, (unsigned int)outbox_max);
   AppMessageResult open_result = app_message_open(inbox_max, outbox_max);
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "open_result = %d", open_result);
+
+#else  // NDEBUG
+  app_message_open(INBOX_MESSAGE_SIZE, OUTBOX_MESSAGE_SIZE);
+#endif  // NDEBUG
 
   time_t now = time(NULL);
   struct tm *startup_time = localtime(&now);
@@ -888,9 +912,9 @@ void handle_init() {
 
   window_stack_push(window, true);
 
-  mins_background = rle_bwd_create(RESOURCE_ID_MINS_BACKGROUND);
+  mins_background = png_bwd_create(RESOURCE_ID_MINS_BACKGROUND);
   assert(mins_background.bitmap != NULL);
-  date_background = rle_bwd_create(RESOURCE_ID_DATE_BACKGROUND);
+  date_background = png_bwd_create(RESOURCE_ID_DATE_BACKGROUND);
   assert(date_background.bitmap != NULL);
 
   face_layer = layer_create(layer_get_bounds(root_layer));
@@ -916,7 +940,7 @@ void handle_init() {
   init_battery_gauge(root_layer, 125, 0, false, true);
   init_bluetooth_indicator(root_layer, 0, 0, false, true);
 
-  start_transition(startup_time->tm_hour % 12, true);
+  //  start_transition(startup_time->tm_hour % 12, true);
 
   apply_config();
 }
@@ -939,6 +963,14 @@ void handle_deinit() {
 
 int main(void) {
   handle_init();
+
+  jmp_buf env;
+  if (setjmp(env)) {
+    // Assertion failure jumps back here.
+    handle_deinit();
+    return 1;
+  }
+  setup_assert(&env);
 
   app_event_loop();
   handle_deinit();

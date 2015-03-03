@@ -1,6 +1,12 @@
 // The number of vertical slices of each doctor face.
 #define NUM_SLICES %(numSlices)s
 
+// Defined if we are compiling in support for RLE-encoded images.  If
+// not, all resource images must be unencoded.
+#if %(supportRle)s
+  #define SUPPORT_RLE 1
+#endif
+
 #if %(compileDebugging)s
   // The following definition is meant for debugging only.  It enables
   // a quick hack to make minutes fly by like seconds, so you can
