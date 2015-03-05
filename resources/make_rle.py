@@ -349,9 +349,9 @@ def make_rle(filename, prefix = 'resources/', useRle = True):
         make_rle_image(prefix + rleFilename, image)
         return rleFilename, 'raw'
     else:
-        ptype = 'png'
+        ptype = 'pbi'
         print filename
-        return filename, 'png'
+        return filename, ptype
 
 def make_rle_trans(filename, prefix = 'resources/', useRle = True):
     image = PIL.Image.open(prefix + filename)
@@ -382,7 +382,7 @@ def make_rle_trans(filename, prefix = 'resources/', useRle = True):
         rleBlackFilename = basename + '_black.png'
         black.save(prefix + rleBlackFilename)
         print filename
-        return rleWhiteFilename, rleBlackFilename, 'png'
+        return rleWhiteFilename, rleBlackFilename, 'pbi'
 
 def unpack_rle_file(rleFilename):
     rb = open(rleFilename, 'rb')
