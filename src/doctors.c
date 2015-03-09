@@ -392,7 +392,7 @@ load_face_slice(int si, int face_value) {
     bwd_destroy(&(visible_face[si].face_image));
     visible_face[si].face_value = face_value;
     int resource_id = face_resource_ids[face_value][si];
-    visible_face[si].face_image = png_bwd_create(resource_id);
+    visible_face[si].face_image = rle_bwd_create(resource_id);
   }
 }
 
@@ -403,7 +403,7 @@ load_next_face(int si, int face_value) {
     next_face_value = face_value;
     next_face_slice = si;
     int resource_id = face_resource_ids[face_value][si];
-    next_face_image = png_bwd_create(resource_id);
+    next_face_image = rle_bwd_create(resource_id);
     if (next_face_image.bitmap != NULL) {
       //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded face %d,%d %p, format = %d", si, face_value, next_face_image.bitmap, gbitmap_get_format(next_face_image.bitmap));
     }

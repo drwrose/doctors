@@ -5,6 +5,7 @@ import PIL.ImageChops
 import sys
 import os
 import getopt
+from resources.make_rle import make_rle
 
 help = """
 setup.py
@@ -47,7 +48,7 @@ doctorsImage = """
       {
         "name": "%(resource_base)s",
         "file": "%(filename)s",
-        "type": "png"
+        "type": "%(ptype)s"
       },
 """
 
@@ -117,16 +118,18 @@ def makeDoctors():
             filename = 'slices/%s_%s_of_%s.png' % (basename, slice + 1, numSlices)
             image.save('%s/%s' % (resourcesDir, filename))
 
-            #rleFilename = 'slices/%s_%s_of_%s.rle' % (basename, slice + 1, numSlices)
+            rleFilename, ptype = make_rle(filename, useRle = supportRle)
             doctorsImages += doctorsImage % {
             'resource_base' : resource_base,
-            'filename' : filename,
+            'filename' : rleFilename,
+            'ptype' : ptype,
             }
 
             for mod, modImage in mods.items():
                 image = modImage.crop(box)
                 filename = 'slices/%s_%s_of_%s%s.png' % (basename, slice + 1, numSlices, mod)
                 image.save('%s/%s' % (resourcesDir, filename))
+                rleFilename, ptype = make_rle(filename, useRle = supportRle)
 
             doctorsIds += 'RESOURCE_ID_%s, ' % (resource_base)
         doctorsIds += '},\n'
@@ -171,8 +174,8 @@ except getopt.error, msg:
 
 numSlices = 3
 compileDebugging = False
-#supportRle = True
-supportRle = False
+supportRle = True
+#supportRle = False
 targetPlatforms = [ ]
 for opt, arg in opts:
     if opt == '-s':
