@@ -741,13 +741,7 @@ void date_layer_update_callback(Layer *me, GContext* ctx) {
 }
 
 
-// Update the watch as time passes.
-void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
-  if (face_value == -1) {
-    // We haven't loaded yet.
-    return;
-  }
-
+void update_time(struct tm *tick_time, bool for_startup) {
   int face_new, hour_new, minute_new, second_new, day_new, date_new;
 
   hour_new = face_new = tick_time->tm_hour % 12;
@@ -775,6 +769,14 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
   day_new = ((tick_time->tm_min * 60 + tick_time->tm_sec) / 4) % 7;
   date_new = (tick_time->tm_min * 60 + tick_time->tm_sec) % 31 + 1;
 #endif
+
+  /*
+  // Hack for screenshots.
+  {
+    face_new = hour_new = 10;
+    minute_new = 9;
+  }
+  */
 
   if (hour_new != hour_value) {
     // Update the hour display.
@@ -815,10 +817,19 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
   if (face_transition) {
     layer_mark_dirty(face_layer);
   } else if (face_new != face_value) {
-    start_transition(face_new, false);
+    start_transition(face_new, for_startup);
   }
 
   set_next_timer();
+}
+
+// Update the watch as time passes.
+void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
+  if (face_value == -1) {
+    // We haven't loaded yet.
+    return;
+  }
+  update_time(tick_time, false);
 }
 
 // Updates any runtime settings as needed when the config changes.
@@ -867,20 +878,16 @@ void handle_init() {
   app_message_open(INBOX_MESSAGE_SIZE, OUTBOX_MESSAGE_SIZE);
 #endif  // NDEBUG
 
-  time_t now = time(NULL);
-  struct tm *startup_time = localtime(&now);
-  srand(now);
-
   face_transition = false;
   face_value = -1;
   next_face_value = -1;
   next_face_slice = -1;
   last_buzz_hour = -1;
-  hour_value = startup_time->tm_hour % 12;
-  minute_value = startup_time->tm_min;
-  second_value = startup_time->tm_sec;
-  day_value = startup_time->tm_wday;
-  date_value = startup_time->tm_mday;
+  hour_value = -1;
+  minute_value = -1;
+  second_value = -1;
+  day_value = -1;
+  date_value = -1;
   hide_colon = false;
 
   for (int si = 0; si < NUM_SLICES; ++si) {
@@ -921,7 +928,12 @@ void handle_init() {
   init_battery_gauge(root_layer, 125, 0, false, true);
   init_bluetooth_indicator(root_layer, 0, 0, false, true);
 
-  start_transition(startup_time->tm_hour % 12, true);
+  time_t now = time(NULL);
+  struct tm *startup_time = localtime(&now);
+  srand(now);
+
+  //start_transition(startup_time->tm_hour % 12, true);
+  update_time(startup_time, true);
 
   apply_config();
 }

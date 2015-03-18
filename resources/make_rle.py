@@ -1,8 +1,9 @@
 #! /usr/bin/env python
 
-import PIL.Image
+import PIL.Image, PIL.ImageOps
 import sys
 import os
+import shutil
 
 help = """
 make_rle.py
@@ -40,6 +41,9 @@ GBitmapFormat1BitPalette = 2
 GBitmapFormat2BitPalette = 3
 GBitmapFormat4BitPalette = 4
 
+
+thresholdMask = [0] + [255] * 255
+threshold2Bit = [0] * 64 + [85] * 64 + [170] * 64 + [255] * 64
 
 
 def usage(code, msg = ''):
@@ -311,10 +315,15 @@ def make_rle_image_1bit(rleFilename, image):
     w, h = image.size
     stride = ((w + 31) / 32) * 4
     fullSize = h * stride
+    pixels_per_byte = 8
     
-    if w % 8 != 0:
-        # Must be a multiple of 8 pixels wide.  If not, expand it.
-        w = ((w + 7) / 8) * 8
+    ## if w % 8 != 0:
+    ##     # Must be a multiple of 8 pixels wide.  If not, expand it.
+    ##     w = ((w + 7) / 8) * 8
+    w_orig = w
+    if w != stride * pixels_per_byte:
+        # Must be stride bytes wide.  If not, expand it.
+        w = stride * pixels_per_byte
         im2 = PIL.Image.new('1', (w, h), 0)
         im2.paste(image, (0, 0))
         image = im2
@@ -363,17 +372,34 @@ def make_rle_image_1bit(rleFilename, image):
     #print "n = %s, format = %s, vo = %s, po = %s" % (n, format, vo, vo)
 
     rle = open(rleFilename, 'wb')
-    rle.write('%c%c%c%c%c%c%c%c' % (w, h, n, format, vo_lo, vo_hi, vo_lo, vo_hi))
+    rle.write('%c%c%c%c%c%c%c%c' % (w_orig, h, n, format, vo_lo, vo_hi, vo_lo, vo_hi))
     rle.write(result)
     rle.close()
     
-    print '%s: %s vs. %s' % (rleFilename, 8 + len(result), fullSize)
+    print '%s: %s, %s vs. %s' % (rleFilename, format, 8 + len(result), fullSize)
 
 def make_rle_image_basalt(rleFilename, image):
     image = image.convert('RGBA')
     w, h = image.size
-    fullSize = w * h
 
+    r, g, b, a = image.split()
+
+    # Ensure that the RGB image is black anywhere the alpha
+    # is black.
+    black = PIL.Image.new('L', image.size, 0)
+    mask = a.point(thresholdMask)
+    r = PIL.Image.composite(r, black, mask)
+    g = PIL.Image.composite(g, black, mask)
+    b = PIL.Image.composite(b, black, mask)
+
+    # Ensure the image is reduced to Basalt's 64 colors.
+    r = r.point(threshold2Bit)
+    g = g.point(threshold2Bit)
+    b = b.point(threshold2Bit)
+    a = a.point(threshold2Bit)
+
+    image = PIL.Image.merge('RGBA', [r, g, b, a])
+    
     # Check the number of unique colors in the image to determine the
     # precise image type.
     colors = image.getcolors(16)
@@ -403,10 +429,18 @@ def make_rle_image_basalt(rleFilename, image):
             vn = 4
 
     pixels_per_byte = 8 / vn
-    if w % pixels_per_byte != 0:
-        # Must be an even multiple of bytes wide.  If not, expand it.
-        w = ((w + pixels_per_byte - 1) / pixels_per_byte) * pixels_per_byte
-        im2 = PIL.Image.new(image.format, (w, h), 0)
+    stride = (w + pixels_per_byte - 1) / pixels_per_byte
+
+    # Apparently Basalt does not word-align the rows for these advanced format types.
+    #stride = ((stride + 3) / 4) * 4
+    
+    fullSize = h * stride
+
+    w_orig = w
+    if w != stride * pixels_per_byte:
+        # Must be stride bytes wide.  If not, expand it.
+        w = stride * pixels_per_byte
+        im2 = PIL.Image.new(image.mode, (w, h), 0)
         im2.paste(image, (0, 0))
         image = im2
 
@@ -462,7 +496,7 @@ def make_rle_image_basalt(rleFilename, image):
     #print "n = %s, format = %s, vo = %s, po = %s" % (n, format, vo, po)
 
     rle = open(rleFilename, 'wb')
-    rle.write('%c%c%c%c%c%c%c%c' % (w, h, n, format, vo_lo, vo_hi, po_lo, po_hi))
+    rle.write('%c%c%c%c%c%c%c%c' % (w_orig, h, n, format, vo_lo, vo_hi, po_lo, po_hi))
     rle.write(result)
     assert rle.tell() == vo
     rle.write(values_result)
@@ -473,7 +507,7 @@ def make_rle_image_basalt(rleFilename, image):
             
     rle.close()
     
-    print '%s: %s vs. %s' % (rleFilename, 8 + len(result) + len(values), fullSize)
+    print '%s: %s, %s vs. %s' % (rleFilename, format, 8 + len(result) + len(values), fullSize)
             
 def make_rle_image(rleFilename, image, platformType = 'auto'):
     if platformType == 'auto' and rleFilename.find('~bw') != -1:
@@ -484,10 +518,18 @@ def make_rle_image(rleFilename, image, platformType = 'auto'):
     else:
         return make_rle_image_basalt(rleFilename, image)
 
-def make_rle(filename, prefix = 'resources/', useRle = True, platformType = 'auto'):
+def make_rle(filename, prefix = 'resources/', useRle = True, platformType = 'auto', modes = ['~bw', '~color']):
     if useRle:
+        basename, ext = os.path.splitext(filename)
+        for mode in modes:
+            # Specialized mode files.
+            if os.path.exists(prefix + basename + mode + ext):
+                image = PIL.Image.open(prefix + basename + mode + ext)
+                rleFilename = basename + mode + '.rle'
+                make_rle_image(prefix + rleFilename, image, platformType = platformType)
+
+        # Primary file.
         image = PIL.Image.open(prefix + filename)
-        basename = os.path.splitext(filename)[0]
         rleFilename = basename + '.rle'
         make_rle_image(prefix + rleFilename, image, platformType = platformType)
         return rleFilename, 'raw'
@@ -496,7 +538,48 @@ def make_rle(filename, prefix = 'resources/', useRle = True, platformType = 'aut
         print filename
         return filename, ptype
 
-def make_rle_trans(filename, prefix = 'resources/', useRle = True):
+def make_rle_trans(filename, prefix = 'resources/', useRle = True, platformType = 'auto', modes = ['~bw', '~color']):
+    basename, ext = os.path.splitext(filename)
+    for mode in modes:
+        # Handle the specialized mode files.
+        if os.path.exists(prefix + basename + mode + ext):
+            make_rle_trans_file(basename + mode + ext, prefix = prefix, useRle = useRle, platformType = platformType)
+
+    # Primary file.
+    rleWhiteFilename, rleBlackFilename, ptype = make_rle_trans_file(filename, prefix = prefix, useRle = useRle, platformType = platformType)
+
+    return rleWhiteFilename, rleBlackFilename, ptype
+        
+
+def make_rle_trans_file(filename, prefix = 'resources/', useRle = True, platformType = 'auto'):
+    if platformType == 'auto' and filename.find('~bw') != -1:
+        platformType = 'aplite'
+
+    basename = os.path.splitext(filename)[0]
+    mode = ''
+    if '~' in basename:
+        basename, mode = basename.split('~', 1)
+        mode = '~' + mode
+
+    if platformType != 'aplite':
+        # In the basalt case, this is almost the same as make_rle(),
+        # but we have also a meaningless "black" image.
+        if useRle:
+            image = PIL.Image.open(prefix + filename)
+            rleWhiteFilename = basename + '_white' + mode + '.rle'
+            rleBlackFilename = basename + '_black' + mode + '.rle'
+            make_rle_image(prefix + rleWhiteFilename, image, platformType = platformType)
+            open(prefix + rleBlackFilename, 'wb')
+            return rleWhiteFilename, rleBlackFilename, 'raw'
+        else:
+            rleWhiteFilename = basename + '_white' + mode + '.png'
+            shutil.copyfile(prefix + filename, prefix + rleWhiteFilename)
+            rleBlackFilename = basename + '_black' + mode + '.png'
+            image = PIL.Image.new('1', (1, 1), 0)
+            image.save(prefix + rleBlackFilename)
+            return rleWhiteFilename, rleBlackFilename, 'png'
+            
+    # In the aplite case, we split the image into white and black versions.
     image = PIL.Image.open(prefix + filename)
     bits, alpha = image.convert('LA').split()
     bits = bits.convert('1')
@@ -511,18 +594,16 @@ def make_rle_trans(filename, prefix = 'resources/', useRle = True):
     white = PIL.Image.composite(white, zero, alpha)
     
     if useRle:
-        basename = os.path.splitext(filename)[0]
-        rleWhiteFilename = basename + '_white.rle'
+        rleWhiteFilename = basename + '_white' + mode + '.rle'
         make_rle_image(prefix + rleWhiteFilename, white)
-        rleBlackFilename = basename + '_black.rle'
+        rleBlackFilename = basename + '_black' + mode + '.rle'
         make_rle_image(prefix + rleBlackFilename, black)
         
         return rleWhiteFilename, rleBlackFilename, 'raw'
     else:
-        basename = os.path.splitext(filename)[0]
-        rleWhiteFilename = basename + '_white.png'
+        rleWhiteFilename = basename + '_white' + mode + '.png'
         white.save(prefix + rleWhiteFilename)
-        rleBlackFilename = basename + '_black.png'
+        rleBlackFilename = basename + '_black' + mode + '.png'
         black.save(prefix + rleBlackFilename)
         print filename
         return rleWhiteFilename, rleBlackFilename, 'pbi'
@@ -561,7 +642,9 @@ def unpack_rle_file(rleFilename):
         assert False
 
     stride = (width + pixels_per_byte - 1) / pixels_per_byte
-    stride = ((stride + 3) / 4) * 4
+
+    if format == GBitmapFormat1Bit:
+        stride = ((stride + 3) / 4) * 4
 
     # Expand the width as needed to include the extra padding pixels.
     width2 = (stride * pixels_per_byte)
@@ -636,6 +719,11 @@ def unpack_rle_file(rleFilename):
             pi += 1
 
     assert pi == len(pixels)
+
+    # Re-crop the image to its intended width.
+    if width2 != width:
+        image = image.crop((0, 0, width, height))
+        
     return image
 
 

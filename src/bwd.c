@@ -3,6 +3,7 @@
 #include "pebble_compat.h"
 #include "doctors.h"
 #include "../resources/generated_config.h"
+//#define SUPPORT_RLE 1
 
 BitmapWithData bwd_create(GBitmap *bitmap) {
   BitmapWithData bwd;
@@ -430,7 +431,6 @@ rle_bwd_create(int resource_id) {
   uint8_t *bitmap_data = gbitmap_get_data(image);
   assert(bitmap_data != NULL);
   size_t data_size = height * stride;
-  //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "stride = %d, data_size = %d", stride, data_size);
 
   Rl2Unpacker rl2;
   rl2unpacker_init(&rl2, &rb, n, true);
@@ -489,19 +489,18 @@ rle_bwd_create(int resource_id) {
   if (do_unscreen) {
     unscreen_bitmap(image);
   }
-
+  
   if (palette_count != 0) {
     // Now we need to apply the palette.
     ResHandle rh = resource_get_handle(resource_id);
     size_t total_size = resource_size(rh);
     assert(total_size > po);
     size_t palette_size = total_size - po;
-    assert(palette_size == palette_count);
-    GColor *palette = (GColor *)malloc(palette_size);
+    assert(palette_size <= palette_count);
+    GColor *palette = gbitmap_get_palette(image);
+    assert(palette != NULL);
     size_t bytes_read = resource_load_byte_range(rh, po, (uint8_t *)palette, palette_size);
     assert(bytes_read == palette_size);
-
-    gbitmap_set_palette(image, palette, true);
   }
   
   return bwd_create(image);
@@ -530,6 +529,7 @@ rle_bwd_create(int resource_id) {
   rbuffer_init(resource_id, &rb, 0);
   int width = rbuffer_getc(&rb);
   int height = rbuffer_getc(&rb);
+  assert(width > 0 && width <= 144 && height > 0 && height <= 168);
   int n = rbuffer_getc(&rb);
   int format = rbuffer_getc(&rb);
   if (format != 0) {
@@ -545,6 +545,8 @@ rle_bwd_create(int resource_id) {
   int do_unscreen = (n & 0x80);
   n = n & 0x7f;
 
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "reading bitmap %d x %d, n = %d, format = %d", width, height, n, format);
+  
   GBitmap *image = gbitmap_create_blank(GSize(width, height));
   if (image == NULL) {
     return bwd_create(NULL);
@@ -592,3 +594,46 @@ rle_bwd_create(int resource_id) {
 #endif // PBL_PLATFORM_APLITE
 
 #endif  // SUPPORT_RLE
+
+// Apply boolean ops to the colors of a palette-based bitmap after
+// loading.  Only supported for palette bitmaps.
+void bwd_adjust_colors(BitmapWithData *bwd, uint8_t and_argb8, uint8_t or_argb8, uint8_t xor_argb8) {
+#ifndef PBL_PLATFORM_APLITE
+  if (bwd->bitmap == NULL) {
+    return;
+  }
+  GBitmapFormat format = gbitmap_get_format(bwd->bitmap);
+  int palette_size = 0;
+  switch (format) {
+  case GBitmapFormat1BitPalette:
+    palette_size = 2;
+    break;
+  case GBitmapFormat2BitPalette:
+    palette_size = 4;
+    break;
+  case GBitmapFormat4BitPalette:
+    palette_size = 16;
+    break;
+
+  case GBitmapFormat1Bit:
+  case GBitmapFormat8Bit:
+  default:
+    // We just refuse to adjust true-color images.  Technically, we
+    // could apply the adjustment at least to GBitmapFormat8Bit images
+    // (by walking through all of the pixels), but instead we'll flag
+    // it as an error, to help catch accidental mistakes in image
+    // preparation.
+    app_log(APP_LOG_LEVEL_WARNING, __FILE__, __LINE__, "bwd_adjust_colors cannot adjust non-palette format %d", format);
+    return;
+  }
+
+  assert(palette_size != 0);
+  GColor *palette = gbitmap_get_palette(bwd->bitmap);
+  assert(palette != NULL);
+
+  for (int pi = 0; pi < palette_size; ++pi) {
+    palette[pi].argb = (((palette[pi].argb & and_argb8) | or_argb8) ^ xor_argb8);
+  }
+    
+#endif // PBL_PLATFORM_APLITE
+}
