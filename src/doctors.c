@@ -773,8 +773,8 @@ void update_time(struct tm *tick_time, bool for_startup) {
   /*
   // Hack for screenshots.
   {
-    face_new = hour_new = 10;
-    minute_new = 9;
+    face_new = hour_new = 10;   // 10:09
+    minute_new = 09;
   }
   */
 
