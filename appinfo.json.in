@@ -7,7 +7,7 @@
   ],
   "companyName": "drwrose",
   "versionCode": 1,
-  "versionLabel": "3.0",
+  "versionLabel": "3.2",
   "sdkVersion": "3",
   "targetPlatforms": [ %(targetPlatforms)s ],
   "watchapp": {

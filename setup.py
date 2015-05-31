@@ -172,10 +172,10 @@ try:
 except getopt.error, msg:
     usage(1, msg)
 
-numSlices = 3
+numSlices = 1
 compileDebugging = False
-supportRle = True
-#supportRle = False
+#supportRle = True
+supportRle = False
 targetPlatforms = [ ]
 for opt, arg in opts:
     if opt == '-s':
