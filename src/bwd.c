@@ -1,7 +1,6 @@
 #include "bwd.h"
 #include "assert.h"
 #include "pebble_compat.h"
-#include "doctors.h"
 #include "../resources/generated_config.h"
 //#define SUPPORT_RLE 1
 
@@ -423,8 +422,14 @@ rle_bwd_create(int resource_id) {
   }
   assert(packer_func != NULL);
 
-  GBitmap *image = gbitmap_create_blank(GSize(width, height), format);
+  GColor *palette = NULL;
+  if (palette_count != 0) {
+    palette = (GColor *)malloc(palette_count * sizeof(GColor));
+  }
+  
+  GBitmap *image = gbitmap_create_blank_with_palette(GSize(width, height), format, palette, true);
   if (image == NULL) {
+    free(palette);
     return bwd_create(NULL);
   }
   int stride = gbitmap_get_bytes_per_row(image);
@@ -497,8 +502,7 @@ rle_bwd_create(int resource_id) {
     assert(total_size > po);
     size_t palette_size = total_size - po;
     assert(palette_size <= palette_count);
-    GColor *palette = gbitmap_get_palette(image);
-    assert(palette != NULL);
+    assert(palette == gbitmap_get_palette(image));
     size_t bytes_read = resource_load_byte_range(rh, po, (uint8_t *)palette, palette_size);
     assert(bytes_read == palette_size);
   }
@@ -547,7 +551,7 @@ rle_bwd_create(int resource_id) {
 
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "reading bitmap %d x %d, n = %d, format = %d", width, height, n, format);
   
-  GBitmap *image = gbitmap_create_blank(GSize(width, height));
+  GBitmap *image = __gbitmap_create_blank(GSize(width, height));
   if (image == NULL) {
     return bwd_create(NULL);
   }
@@ -595,9 +599,9 @@ rle_bwd_create(int resource_id) {
 
 #endif  // SUPPORT_RLE
 
-// Apply boolean ops to the colors of a palette-based bitmap after
-// loading.  Only supported for palette bitmaps.
-void bwd_adjust_colors(BitmapWithData *bwd, uint8_t and_argb8, uint8_t or_argb8, uint8_t xor_argb8) {
+// Replace each of the R, G, B channels with a different color, and
+// blend the result together.  Only supported for palette bitmaps.
+void bwd_remap_colors(BitmapWithData *bwd, GColor cb, GColor c1, GColor c2, GColor c3, bool invert_colors) {
 #ifndef PBL_PLATFORM_APLITE
   if (bwd->bitmap == NULL) {
     return;
@@ -623,7 +627,7 @@ void bwd_adjust_colors(BitmapWithData *bwd, uint8_t and_argb8, uint8_t or_argb8,
     // (by walking through all of the pixels), but instead we'll flag
     // it as an error, to help catch accidental mistakes in image
     // preparation.
-    app_log(APP_LOG_LEVEL_WARNING, __FILE__, __LINE__, "bwd_adjust_colors cannot adjust non-palette format %d", format);
+    app_log(APP_LOG_LEVEL_WARNING, __FILE__, __LINE__, "bwd_remap_colors cannot adjust non-palette format %d", format);
     return;
   }
 
@@ -632,7 +636,33 @@ void bwd_adjust_colors(BitmapWithData *bwd, uint8_t and_argb8, uint8_t or_argb8,
   assert(palette != NULL);
 
   for (int pi = 0; pi < palette_size; ++pi) {
-    palette[pi].argb = (((palette[pi].argb & and_argb8) | or_argb8) ^ xor_argb8);
+    int r = cb.r;
+    int g = cb.g;
+    int b = cb.b;
+    
+    GColor p = palette[pi];
+
+    r = (3 * r + p.r * (c1.r - r)) / 3;  // Blend from r to c1.r
+    r = (3 * r + p.g * (c2.r - r)) / 3;  // Blend from r to c2.r
+    r = (3 * r + p.b * (c3.r - r)) / 3;  // Blend from r to c3.r
+
+    g = (3 * g + p.r * (c1.g - g)) / 3;  // Blend from g to c1.g
+    g = (3 * g + p.g * (c2.g - g)) / 3;  // Blend from g to c2.g
+    g = (3 * g + p.b * (c3.g - g)) / 3;  // Blend from g to c3.g
+
+    b = (3 * b + p.r * (c1.b - b)) / 3;  // Blend from b to c1.b
+    b = (3 * b + p.g * (c2.b - b)) / 3;  // Blend from b to c2.b
+    b = (3 * b + p.b * (c3.b - b)) / 3;  // Blend from b to c3.b
+
+    palette[pi].r = (r < 0x3) ? r : 0x3;
+    palette[pi].g = (g < 0x3) ? g : 0x3;
+    palette[pi].b = (b < 0x3) ? b : 0x3;
+
+    //    GColor q = palette[pi]; app_log(APP_LOG_LEVEL_WARNING, __FILE__, __LINE__, "cb = %02x, c1 = %02x, c2 = %02x, c3 = %02x.  %d: %02x/%02x/%02x/%02x becomes %02x/%02x/%02x/%02x (%d, %d, %d)", cb.argb, c1.argb, c2.argb, c3.argb, pi, p.argb & 0xc0, p.argb & 0x30, p.argb & 0x0c, p.argb & 0x03, q.argb & 0xc0, q.argb & 0x30, q.argb & 0x0c, q.argb & 0x03, r, g, b);
+    
+    if (invert_colors) {
+      palette[pi].argb ^= 0x3f;
+    }
   }
     
 #endif // PBL_PLATFORM_APLITE
