@@ -64,6 +64,7 @@ ColorMap dalek_colors[] = {
   { GColorBlackARGB8, GColorWhiteARGB8, GColorLightGrayARGB8, GColorRedARGB8, },
   { GColorBlackARGB8, GColorWhiteARGB8, GColorLightGrayARGB8, GColorOrangeARGB8, },
   { GColorBlackARGB8, GColorWhiteARGB8, GColorDarkGrayARGB8, GColorWhiteARGB8, },
+  { GColorBlackARGB8, GColorWhiteARGB8, GColorYellowARGB8, GColorWhiteARGB8, },
   { GColorBlackARGB8, GColorWhiteARGB8, GColorLightGrayARGB8, GColorBlueARGB8, },
   { GColorBlackARGB8, GColorWhiteARGB8, GColorLightGrayARGB8, GColorYellowARGB8, },
   { GColorBlackARGB8, GColorWhiteARGB8, GColorLightGrayARGB8, GColorJaegerGreenARGB8, },
@@ -346,7 +347,6 @@ void start_transition(int face_new, bool for_startup) {
     // Choose a random transition at the top of the hour.
     wipe_direction = (rand() % 2) != 0;    // Sure, it's not 100% even, but whatever.
     sprite_sel = (rand() % NUM_SPRITES);
-    sprite_sel = SPRITE_DALEK;  // hack.
     anim_direction = (rand() % 2) != 0;
   }
 
