@@ -53,6 +53,26 @@ typedef struct {
 } VisibleFace;
 VisibleFace visible_face[NUM_SLICES];
 
+#ifndef PBL_PLATFORM_APLITE
+// A table of alternate color schemes for the Dalek bitmap (Basalt
+// build only, of course).
+typedef struct {
+  uint8_t cb_argb8, c1_argb8, c2_argb8, c3_argb8;
+} ColorMap;
+
+ColorMap dalek_colors[] = {
+  { GColorBlackARGB8, GColorWhiteARGB8, GColorLightGrayARGB8, GColorRedARGB8, },
+  { GColorBlackARGB8, GColorWhiteARGB8, GColorLightGrayARGB8, GColorOrangeARGB8, },
+  { GColorBlackARGB8, GColorWhiteARGB8, GColorDarkGrayARGB8, GColorWhiteARGB8, },
+  { GColorBlackARGB8, GColorWhiteARGB8, GColorLightGrayARGB8, GColorBlueARGB8, },
+  { GColorBlackARGB8, GColorWhiteARGB8, GColorLightGrayARGB8, GColorYellowARGB8, },
+  { GColorBlackARGB8, GColorWhiteARGB8, GColorLightGrayARGB8, GColorJaegerGreenARGB8, },
+  { GColorBlackARGB8, GColorWhiteARGB8, GColorVeryLightBlueARGB8, GColorBabyBlueEyesARGB8, },
+};
+#define NUM_DALEK_COLORS (sizeof(dalek_colors) / sizeof(ColorMap))
+
+#endif // PBL_PLATFORM_APLITE
+
 // The transitioning face slice.
 int next_face_value;
 int next_face_slice;
@@ -326,6 +346,7 @@ void start_transition(int face_new, bool for_startup) {
     // Choose a random transition at the top of the hour.
     wipe_direction = (rand() % 2) != 0;    // Sure, it's not 100% even, but whatever.
     sprite_sel = (rand() % NUM_SPRITES);
+    sprite_sel = SPRITE_DALEK;  // hack.
     anim_direction = (rand() % 2) != 0;
   }
 
@@ -369,6 +390,12 @@ void start_transition(int face_new, bool for_startup) {
     if (sprite.bitmap != NULL) {
       sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
       //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "dalek loaded %p, format = %d", sprite.bitmap, gbitmap_get_format(sprite.bitmap));
+#ifndef PBL_PLATFORM_APLITE
+      // Pick a random color scheme for the Dalek.
+      int color_sel = (rand() % NUM_DALEK_COLORS);
+      ColorMap *cm = &dalek_colors[color_sel];
+      bwd_remap_colors(&sprite, (GColor8){.argb=cm->cb_argb8}, (GColor8){.argb=cm->c1_argb8}, (GColor8){.argb=cm->c2_argb8}, (GColor8){.argb=cm->c3_argb8}, false);
+#endif  // PBL_PLATFORM_APLITE      
     }
     sprite_cx = 74;
 
