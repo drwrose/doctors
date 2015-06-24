@@ -114,22 +114,31 @@ def makeDoctors():
             box = (xf, 0, xt, screenHeight)
             resource_base = '%s_%s' % (basename.upper(), slice + 1)
 
-            image = source.crop(box)
-            filename = 'slices/%s_%s_of_%s.png' % (basename, slice + 1, numSlices)
-            image.save('%s/%s' % (resourcesDir, filename))
+            if numSlices != 1:
+                # Make slices.
+                image = source.crop(box)
+                filename = 'slices/%s_%s_of_%s.png' % (basename, slice + 1, numSlices)
+                image.save('%s/%s' % (resourcesDir, filename))
+            else:
+                # Special case--no slicing needed; just use the
+                # original full-sized image.
+                filename = '%s.png' % (basename)
 
             rleFilename, ptype = make_rle(filename, useRle = supportRle)
+            
             doctorsImages += doctorsImage % {
             'resource_base' : resource_base,
             'filename' : rleFilename,
             'ptype' : ptype,
             }
 
-            for mod, modImage in mods.items():
-                image = modImage.crop(box)
-                filename = 'slices/%s_%s_of_%s%s.png' % (basename, slice + 1, numSlices, mod)
-                image.save('%s/%s' % (resourcesDir, filename))
-                rleFilename, ptype = make_rle(filename, useRle = supportRle)
+            if numSlices != 1:
+                # Also make slices of the mod (color) variants.
+                for mod, modImage in mods.items():
+                    image = modImage.crop(box)
+                    filename = 'slices/%s_%s_of_%s%s.png' % (basename, slice + 1, numSlices, mod)
+                    image.save('%s/%s' % (resourcesDir, filename))
+                    rleFilename, ptype = make_rle(filename, useRle = supportRle)
 
             doctorsIds += 'RESOURCE_ID_%s, ' % (resource_base)
         doctorsIds += '},\n'
