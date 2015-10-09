@@ -379,6 +379,7 @@ void start_transition(int face_new, bool for_startup) {
 
   } else {
     // Choose a random transition at the top of the hour.
+
     wipe_direction = (rand() % 2) != 0;    // Sure, it's not 100% even, but whatever.
     sprite_sel = (rand() % NUM_SPRITES);
     anim_direction = (rand() % 2) != 0;
@@ -446,7 +447,21 @@ void start_transition(int face_new, bool for_startup) {
   set_next_timer();
 }
 
-// Ensures the bitmap for face_value is loaded for slice si.
+// Loads next_face_image with the si'th slice of face_value.  No-op if
+// it's already loaded.
+void
+load_next_face_slice(int si, int face_value) {
+  if (next_face_value != face_value || next_face_slice != si) {
+    bwd_destroy(&next_face_image);
+    next_face_value = face_value;
+    next_face_slice = si;
+    int resource_id = face_resource_ids[face_value][si];
+    next_face_image = rle_bwd_create(resource_id);
+  }
+}
+
+// Ensures the bitmap for face_value is loaded for slice si.  No-op if
+// it's already loaded.
 void
 load_face_slice(int si, int face_value) {
   if (visible_face[si].face_value != face_value) {
@@ -457,19 +472,102 @@ load_face_slice(int si, int face_value) {
   }
 }
 
-void
-load_next_face(int si, int face_value) {
-  if (next_face_value != face_value || next_face_slice != si) {
-    bwd_destroy(&next_face_image);
-    next_face_value = face_value;
-    next_face_slice = si;
-    int resource_id = face_resource_ids[face_value][si];
-    next_face_image = rle_bwd_create(resource_id);
-    if (next_face_image.bitmap != NULL) {
-      //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "loaded face %d,%d %p, format = %d", si, face_value, next_face_image.bitmap, gbitmap_get_format(next_face_image.bitmap));
-    }
+#if NUM_SLICES == 1
+
+// The following code is the single-slice version of face-drawing,
+// assuming that face bitmaps are complete and full-screen.
+
+// Draw the face in transition from one to the other, with the
+// division line at wipe_x.
+
+// Draws the indicated fullscreen bitmap completely.
+void draw_fullscreen_complete(GContext *ctx, BitmapWithData image) {
+  GRect destination;
+  destination.origin.x = 0;
+  destination.origin.y = 0;
+  destination.size.w = SCREEN_WIDTH;
+  destination.size.h = SCREEN_HEIGHT;
+
+  if (image.bitmap == NULL) {
+    // The bitmap wasn't loaded successfully; just clear the region.
+    // This is a fallback.
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_rect(ctx, destination, 0, GCornerNone);
+  } else {
+    // Draw the bitmap in the region.
+    graphics_draw_bitmap_in_rect(ctx, image.bitmap, destination);
   }
 }
+
+// Draws the indicated fullscreen bitmap only to the left of wipe_x.
+void draw_fullscreen_wiped(GContext *ctx, BitmapWithData image, int wipe_x) {
+  if (wipe_x < 0) {
+    // Trivial return.
+    return;
+  } else if (wipe_x >= SCREEN_WIDTH) {
+    // Trivial fill.
+    draw_fullscreen_complete(ctx, image);
+    return;
+  }
+  
+  GRect destination;
+  destination.origin.x = 0;
+  destination.origin.y = 0;
+  destination.size.w = wipe_x;
+  destination.size.h = SCREEN_HEIGHT;
+
+  if (image.bitmap == NULL) {
+    // The bitmap wasn't loaded successfully; just clear the region.
+    // This is a fallback.
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_rect(ctx, destination, 0, GCornerNone);
+  } else {
+    // Draw the bitmap in the region.
+    graphics_draw_bitmap_in_rect(ctx, image.bitmap, destination);
+  }
+}
+
+void draw_face_transition(Layer *me, GContext *ctx, int wipe_x) {
+  if (wipe_direction) {
+    // Wiping left-to-right.
+    
+    // Draw the old face, and draw the visible portion of the new face
+    // on top of it.
+    draw_fullscreen_complete(ctx, visible_face[0].face_image);
+    load_next_face_slice(0, face_value);
+    draw_fullscreen_wiped(ctx, next_face_image, wipe_x);
+    
+  } else {
+    // Wiping right-to-left.
+    
+    // Draw the new face, and then draw the visible portion of the old
+    // face on top of it.
+    load_next_face_slice(0, face_value);
+    draw_fullscreen_complete(ctx, next_face_image);
+    draw_fullscreen_wiped(ctx, visible_face[0].face_image, wipe_x);
+  }
+}
+
+void draw_face_complete(Layer *me, GContext *ctx) {
+  load_face_slice(0, face_value);
+  draw_fullscreen_complete(ctx, visible_face[0].face_image);
+}
+
+#else  // NUM_SLICES
+
+// The following code is the multi-slice version of face-drawing,
+// which is complicated because we have pre-sliced all of the face
+// bitmaps into NUM_SLICES vertical slices, so we can load and draw
+// these slices one at a time.  During a transition, we display n
+// slices of the old face, and NUM_SLICES - n - 1 of the new face,
+// with a single slice that might have parts of both faces visible at
+// once.  So we only have to double up on that one transitioning
+// slice, which helps the RAM utilization a great deal.
+
+// In practice, this causes visible timing hiccups as we load each
+// slice during the animation, and it's not actually necessary as the
+// 4-bit palette versions of these bitmaps do fit entirely in memory.
+// So this is no longer used.
 
 // Draws the indicated face_value for slice si.
 void
@@ -490,25 +588,104 @@ draw_face_slice(Layer *me, GContext *ctx, int si) {
   }
 }
 
+// Draw the face in transition from one to the other, with the
+// division line at wipe_x.
+
+void draw_face_transition(Layer *me, GContext *ctx, int wipe_x) {
+  // The slice number within which the transition is currently
+  // happening.
+  int wipe_slice = (wipe_x * NUM_SLICES) / SCREEN_WIDTH;
+  if (wipe_slice < 0) {
+    wipe_slice = 0;
+  } else if (wipe_slice >= NUM_SLICES) {
+    wipe_slice = NUM_SLICES - 1;
+  }
+  
+  GRect destination;
+  destination.origin.x = slice_points[wipe_slice];
+  destination.origin.y = 0;
+  destination.size.w = slice_points[wipe_slice + 1] - slice_points[wipe_slice];
+  destination.size.h = SCREEN_HEIGHT;
+  
+  if (wipe_direction) {
+    // Wiping left-to-right.
+    
+    // Draw the old face within the wipe_slice, and draw the visible
+    // portion of the new face on top of it.
+    draw_face_slice(me, ctx, wipe_slice);
+    if (wipe_x > destination.origin.x) {
+      load_next_face_slice(wipe_slice, face_value);
+      destination.size.w = wipe_x - destination.origin.x;
+      if (next_face_image.bitmap == NULL) {
+        graphics_context_set_fill_color(ctx, GColorBlack);
+        graphics_fill_rect(ctx, destination, 0, GCornerNone);
+      } else {
+        graphics_draw_bitmap_in_rect(ctx, next_face_image.bitmap, destination);
+      }
+    }
+    
+    // Draw all of the slices left of the wipe_slice in the new
+    // face.
+    for (int si = 0; si < wipe_slice; ++si) {
+      load_face_slice(si, face_value);
+      draw_face_slice(me, ctx, si);
+    }
+    
+    // Draw all of the slices right of the wipe_slice
+    // in the old face.
+    for (int si = wipe_slice + 1; si < NUM_SLICES; ++si) {
+      draw_face_slice(me, ctx, si);
+    }
+    
+  } else {
+    // Wiping right-to-left.
+    
+    // Draw the new face within the wipe_slice, and then draw
+    // the visible portion of the old face on top of it.
+    load_next_face_slice(wipe_slice, face_value);
+    if (next_face_image.bitmap == NULL) {
+      graphics_context_set_fill_color(ctx, GColorBlack);
+      graphics_fill_rect(ctx, destination, 0, GCornerNone);
+    } else {
+      graphics_draw_bitmap_in_rect(ctx, next_face_image.bitmap, destination);
+    }
+    if (wipe_x > destination.origin.x) {
+      destination.size.w = wipe_x - destination.origin.x;
+      if (visible_face[wipe_slice].face_image.bitmap == NULL) {
+        graphics_context_set_fill_color(ctx, GColorBlack);
+        graphics_fill_rect(ctx, destination, 0, GCornerNone);
+      } else {
+        graphics_draw_bitmap_in_rect(ctx, visible_face[wipe_slice].face_image.bitmap, destination);
+      }
+    }
+    
+    // Draw all of the slices left of the wipe_slice in the old
+    // face.
+    for (int si = 0; si < wipe_slice; ++si) {
+      draw_face_slice(me, ctx, si);
+    }
+    
+    // Draw all of the slices right of the wipe_slice
+    // in the new face.
+    for (int si = wipe_slice + 1; si < NUM_SLICES; ++si) {
+      load_face_slice(si, face_value);
+      draw_face_slice(me, ctx, si);
+    }
+  }
+}
+
+void draw_face_complete(Layer *me, GContext *ctx) {
+  for (int si = 0; si < NUM_SLICES; ++si) {
+    load_face_slice(si, face_value);
+    draw_face_slice(me, ctx, si);
+  }
+}
+
+#endif  // NUM_SLICES
+
 void face_layer_update_callback(Layer *me, GContext *ctx) {
   //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_layer");
   int ti = 0;
-
-  // Draw the face layer.  This is much more complicated than you'd
-  // expect, because we have to support left-to-right and
-  // right-to-left wipes from one face to another, during the
-  // transition animation.  That's not too bad in itself, but in
-  // Basalt we don't have enough RAM to have two full-screen color
-  // bitmaps loaded in memory at the same time (along with all of our
-  // code), and *that* makes this complicated.
-
-  // To solve this, we pre-slice all of the face bitmaps into
-  // NUM_SLICES vertical slices, and we load and draw these slices one
-  // at a time.  During a transition, we display n slices of the old
-  // face, and NUM_SLICES - n - 1 of the new face, with a single slice
-  // that might have parts of both faces visible at once.  So we only
-  // have to double up on that one transitioning slice, which helps
-  // the RAM utilization a great deal.
 
   if (face_transition) {
     // ti ranges from 0 to num_transition_frames over the transition.
@@ -526,10 +703,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
 
       // This means we draw all of the slices with the same face;
       // simple as can be.
-      for (int si = 0; si < NUM_SLICES; ++si) {
-        load_face_slice(si, face_value);
-        draw_face_slice(me, ctx, si);
-      }
+      draw_face_complete(me, ctx);
     }
 
   } else {
@@ -547,89 +721,11 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       wipe_x = wipe_width - wipe_x;
     }
     wipe_x = wipe_x - (sprite_width - sprite_cx);
-
-    // The slice number within which the transition is currently
-    // happening.
-    int wipe_slice = (wipe_x * NUM_SLICES) / SCREEN_WIDTH;
-    if (wipe_slice < 0) {
-      wipe_slice = 0;
-    } else if (wipe_slice >= NUM_SLICES) {
-      wipe_slice = NUM_SLICES - 1;
-    }
-      
-    GRect destination = layer_get_frame(me);
-    destination.origin.x = slice_points[wipe_slice];
-    destination.origin.y = 0;
-    destination.size.w = slice_points[wipe_slice + 1] - slice_points[wipe_slice];
-    
-    if (wipe_direction) {
-      // Wiping left-to-right.
-
-      // Draw the old face within the wipe_slice, and draw the visible
-      // portion of the new face on top of it.
-      draw_face_slice(me, ctx, wipe_slice);
-      if (wipe_x > destination.origin.x) {
-        load_next_face(wipe_slice, face_value);
-        destination.size.w = wipe_x - destination.origin.x;
-        if (next_face_image.bitmap == NULL) {
-          graphics_context_set_fill_color(ctx, GColorBlack);
-          graphics_fill_rect(ctx, destination, 0, GCornerNone);
-        } else {
-          graphics_draw_bitmap_in_rect(ctx, next_face_image.bitmap, destination);
-        }
-      }
-
-      // Draw all of the slices left of the wipe_slice in the new
-      // face.
-      for (int si = 0; si < wipe_slice; ++si) {
-        load_face_slice(si, face_value);
-        draw_face_slice(me, ctx, si);
-      }
-
-      // Draw all of the slices right of the wipe_slice
-      // in the old face.
-      for (int si = wipe_slice + 1; si < NUM_SLICES; ++si) {
-        draw_face_slice(me, ctx, si);
-      }
-
-    } else {
-      // Wiping right-to-left.
-
-      // Draw the new face within the wipe_slice, and then draw
-      // the visible portion of the old face on top of it.
-      load_next_face(wipe_slice, face_value);
-      if (next_face_image.bitmap == NULL) {
-        graphics_context_set_fill_color(ctx, GColorBlack);
-        graphics_fill_rect(ctx, destination, 0, GCornerNone);
-      } else {
-        graphics_draw_bitmap_in_rect(ctx, next_face_image.bitmap, destination);
-      }
-      if (wipe_x > destination.origin.x) {
-        destination.size.w = wipe_x - destination.origin.x;
-        if (visible_face[wipe_slice].face_image.bitmap == NULL) {
-          graphics_context_set_fill_color(ctx, GColorBlack);
-          graphics_fill_rect(ctx, destination, 0, GCornerNone);
-        } else {
-          graphics_draw_bitmap_in_rect(ctx, visible_face[wipe_slice].face_image.bitmap, destination);
-        }
-      }
-
-      // Draw all of the slices left of the wipe_slice in the old
-      // face.
-      for (int si = 0; si < wipe_slice; ++si) {
-        draw_face_slice(me, ctx, si);
-      }
-
-      // Draw all of the slices right of the wipe_slice
-      // in the new face.
-      for (int si = wipe_slice + 1; si < NUM_SLICES; ++si) {
-        load_face_slice(si, face_value);
-        draw_face_slice(me, ctx, si);
-      }
-    }
+    draw_face_transition(me, ctx, wipe_x);
 
     if (sprite_mask.bitmap != NULL) {
       // Then, draw the sprite on top of the wipe line.
+      GRect destination;
       destination.size.w = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
       destination.size.h = gbitmap_get_bounds(sprite_mask.bitmap).size.h;
       destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
@@ -640,6 +736,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
 
     if (sprite.bitmap != NULL) {
       // Fixed sprite case.
+      GRect destination;
       destination.size.w = gbitmap_get_bounds(sprite.bitmap).size.w;
       destination.size.h = gbitmap_get_bounds(sprite.bitmap).size.h;
       destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
@@ -666,6 +763,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
         }
         //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "tardis loaded %p, format = %d", sprite.bitmap, gbitmap_get_format(tardis.bitmap));
 
+        GRect destination;
         destination.size.w = gbitmap_get_bounds(tardis.bitmap).size.w;
         destination.size.h = gbitmap_get_bounds(tardis.bitmap).size.h;
         destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
