@@ -9,8 +9,18 @@ BitmapWithData bluetooth_mask;
 Layer *bluetooth_layer;
 bool bluetooth_state = false;
 
+#ifdef PBL_PLATFORM_APLITE
+
+// On Aplite, these parameters are passed in.
 bool bluetooth_invert = false;
-bool bluetooth_opaque_layer = false;
+
+#else  // PBL_PLATFORM_APLITE
+
+// On Basalt, the icon is never inverted.
+#define bluetooth_invert false
+
+#endif  // PBL_PLATFORM_APLITE
+
 
 void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
   if (config.bluetooth_indicator == IM_off) {
@@ -22,8 +32,9 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
   box.origin.y = 0;
 
   GCompOp fg_mode;
-  GCompOp mask_mode;
 
+#ifdef PBL_PLATFORM_APLITE
+  GCompOp mask_mode;
   if (bluetooth_invert) {
     fg_mode = GCompOpSet;
     mask_mode = GCompOpAnd;
@@ -31,6 +42,11 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
     fg_mode = GCompOpAnd;
     mask_mode = GCompOpSet;
   }
+#else  // PBL_PLATFORM_APLITE
+  // In Basalt, we always use GCompOpSet because the icon includes its
+  // own alpha channel.
+  fg_mode = GCompOpSet;
+#endif  // PBL_PLATFORM_APLITE
 
   bool new_state = bluetooth_connection_service_peek();
   if (new_state != bluetooth_state) {
@@ -45,13 +61,13 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
     if (config.bluetooth_indicator != IM_when_needed) {
       // We don't draw the "connected" bitmap if bluetooth_indicator
       // is set to IM_when_needed; only on IM_always.
-      if (bluetooth_opaque_layer) {
-	if (bluetooth_mask.bitmap == NULL) {
-	  bluetooth_mask = png_bwd_create(RESOURCE_ID_BLUETOOTH_MASK);
-	}
-	graphics_context_set_compositing_mode(ctx, mask_mode);
-	graphics_draw_bitmap_in_rect(ctx, bluetooth_mask.bitmap, box);
+#ifdef PBL_PLATFORM_APLITE      
+      if (bluetooth_mask.bitmap == NULL) {
+        bluetooth_mask = png_bwd_create(RESOURCE_ID_BLUETOOTH_MASK);
       }
+      graphics_context_set_compositing_mode(ctx, mask_mode);
+      graphics_draw_bitmap_in_rect(ctx, bluetooth_mask.bitmap, box);
+#endif  // PBL_PLATFORM_APLITE      
       if (bluetooth_connected.bitmap == NULL) {
 	bluetooth_connected = png_bwd_create(RESOURCE_ID_BLUETOOTH_CONNECTED);
       }
@@ -61,13 +77,13 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
   } else {
     // We always draw the disconnected bitmap (except in the IM_off
     // case, of course).
-    if (bluetooth_opaque_layer) {
-      if (bluetooth_mask.bitmap == NULL) {
-	bluetooth_mask = png_bwd_create(RESOURCE_ID_BLUETOOTH_MASK);
-      }
-      graphics_context_set_compositing_mode(ctx, mask_mode);
-      graphics_draw_bitmap_in_rect(ctx, bluetooth_mask.bitmap, box);
+#ifdef PBL_PLATFORM_APLITE      
+    if (bluetooth_mask.bitmap == NULL) {
+      bluetooth_mask = png_bwd_create(RESOURCE_ID_BLUETOOTH_MASK);
     }
+    graphics_context_set_compositing_mode(ctx, mask_mode);
+    graphics_draw_bitmap_in_rect(ctx, bluetooth_mask.bitmap, box);
+#endif  // PBL_PLATFORM_APLITE      
     if (bluetooth_disconnected.bitmap == NULL) {
       bluetooth_disconnected = png_bwd_create(RESOURCE_ID_BLUETOOTH_DISCONNECTED);
     }
@@ -81,18 +97,20 @@ void handle_bluetooth(bool connected) {
   layer_mark_dirty(bluetooth_layer);
 }
 
-void init_bluetooth_indicator(Layer *window_layer, int x, int y, bool invert, bool opaque_layer) {
-  bluetooth_invert = invert;
-  bluetooth_opaque_layer = opaque_layer;
-  bluetooth_layer = layer_create(GRect(x, y, 18, 18));
+void init_bluetooth_indicator(Layer *window_layer) {
+#ifdef PBL_PLATFORM_APLITE
+  bluetooth_invert = false;
+#endif  // PBL_PLATFORM_APLITE
+  bluetooth_layer = layer_create(GRect(0, 0, 18, 18));
   layer_set_update_proc(bluetooth_layer, &bluetooth_layer_update_callback);
   layer_add_child(window_layer, bluetooth_layer);
   bluetooth_connection_service_subscribe(&handle_bluetooth);
 }
 
-void move_bluetooth_indicator(int x, int y, bool invert, bool opaque_layer) {
+void move_bluetooth_indicator(int x, int y, bool invert) {
+#ifdef PBL_PLATFORM_APLITE
   bluetooth_invert = invert;
-  bluetooth_opaque_layer = opaque_layer;
+#endif  // PBL_PLATFORM_APLITE
   layer_set_frame((Layer *)bluetooth_layer, GRect(x, y, 18, 18));
 }
 

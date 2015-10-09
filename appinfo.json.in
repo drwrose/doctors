@@ -60,17 +60,20 @@
       {
         "name": "BLUETOOTH_DISCONNECTED",
         "file": "bluetooth_disconnected.png",
-        "type": "pbi"
+        "type": "png"
       },
       {
         "name": "BLUETOOTH_CONNECTED",
         "file": "bluetooth_connected.png",
-        "type": "pbi"
+        "type": "png"
       },
       {
         "name": "BLUETOOTH_MASK",
         "file": "bluetooth_mask.png",
-        "type": "pbi"
+        "type": "png",
+        "targetPlatforms": [
+          "aplite"
+        ]
       },
 %(doctorsImages)s
       {
