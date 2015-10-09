@@ -2,7 +2,6 @@
 #define __assert_h
 
 #include <pebble.h>
-#include <setjmp.h>
 #include "../resources/generated_config.h"
 
 #ifndef NDEBUG
@@ -13,12 +12,10 @@
     }							\
    }
 
-void setup_assert(jmp_buf *env);
 void assert_failure(const char *condition, const char *filename, int line_number);
 
 #else  // NDEBUG
   #define assert(condition)
-  #define setup_assert(env)
 
 #endif  // NDEBUG
 

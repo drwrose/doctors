@@ -1,5 +1,4 @@
 #include <pebble.h>
-#include <setjmp.h>
 
 #include "doctors.h"
 #include "assert.h"
@@ -12,8 +11,13 @@
 #include "../resources/generated_config.h"
 #include "../resources/generated_config.c"
 
+#ifdef PBL_ROUND
+#define SCREEN_WIDTH 180
+#define SCREEN_HEIGHT 180
+#else  // PBL_ROUND
 #define SCREEN_WIDTH 144
 #define SCREEN_HEIGHT 168
+#endif  // PBL_ROUND
 
 // The frequency throughout the day at which the buzzer sounds, in seconds.
 #define BUZZER_FREQ 3600
@@ -173,6 +177,7 @@ void flip_bitmap_x(GBitmap *image) {
     break;
 
   case GBitmapFormat8Bit:
+  case GBitmapFormat8BitCircular:
     pixels_per_byte = 1;
     break;
   }
@@ -983,15 +988,6 @@ void handle_deinit() {
 
 int main(void) {
   handle_init();
-
-  jmp_buf env;
-  if (setjmp(env)) {
-    // Assertion failure jumps back here.
-    handle_deinit();
-    return 1;
-  }
-  setup_assert(&env);
-
   app_event_loop();
   handle_deinit();
 }
