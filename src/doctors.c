@@ -514,7 +514,8 @@ void draw_fullscreen_wiped(GContext *ctx, BitmapWithData image, int wipe_x) {
     // of a GBitmapFormat4BitPaletteCircular: it's a 180x180 4-bit
     // palette image, with only a subset of pixels included that are
     // within the visible circle.  It's exactly the same subset
-    // described in the actual framebuffer, but we have to do the math
+    // described in the GBitmapFormat8BitCircular format (used by the
+    // framebuffer), but we have to do the drawing operations
     // ourselves.
     uint8_t *source_data = gbitmap_get_data(image.bitmap);
     GColor *source_palette = gbitmap_get_palette(image.bitmap);
@@ -532,27 +533,47 @@ void draw_fullscreen_wiped(GContext *ctx, BitmapWithData image, int wipe_x) {
       num_bits = 1;
     }
     int bit_mask = (1 << num_bits) - 1;
+    int pixels_per_byte = 8 / num_bits;
 
-    GBitmap *fb = graphics_capture_frame_buffer(ctx);
     uint8_t *sp = source_data;
     int bit_shift = 8 - num_bits;
+
+    GBitmap *fb = graphics_capture_frame_buffer(ctx);
 
     for (int y = 0; y < SCREEN_HEIGHT; ++y) {
       GBitmapDataRowInfo info = gbitmap_get_data_row_info(fb, y);
       uint8_t *row = &info.data[info.min_x];
       uint8_t *dp = row;
-      int width = info.max_x - info.min_x + 1;
-      for (int x = info.min_x; x <= info.max_x; ++x) {
+      int stop_x = info.max_x < wipe_x ? info.max_x : wipe_x;
+      if (stop_x < info.min_x) {
+        stop_x = info.min_x - 1;
+      }
+      for (int x = info.min_x; x <= stop_x; ++x) {
         int value = ((*sp) >> bit_shift) & bit_mask;
 
-        if (x <= wipe_x) {
-          *dp = source_palette[value].argb;
-          ++dp;
-        }
+        *dp = source_palette[value].argb;
+        ++dp;
+
         bit_shift -= num_bits;
         if (bit_shift < 0) {
           bit_shift = 8 - num_bits;
           ++sp;
+        }
+      }
+
+      if (stop_x < info.max_x) {
+        int skip_pixels = info.max_x - stop_x;
+        // Here we are at the end of the row; skip skip_pixels of the
+        // source.
+        sp += skip_pixels / pixels_per_byte;
+        int additional_pixels = skip_pixels % pixels_per_byte;
+        while (additional_pixels > 0) {
+          bit_shift -= num_bits;
+          if (bit_shift < 0) {
+            bit_shift = 8 - num_bits;
+            ++sp;
+          }
+          --additional_pixels;
         }
       }
     }
