@@ -1155,8 +1155,13 @@ void handle_init() {
   layer_set_update_proc(date_layer, &date_layer_update_callback);
   layer_add_child(root_layer, date_layer);
 
-  init_battery_gauge(root_layer, 125, 0, false, true);
+#ifdef PBL_ROUND
+  init_bluetooth_indicator(root_layer, 10, 42, false, true);
+  init_battery_gauge(root_layer, 152, 46, false, true);
+#else  // PBL_ROUND
   init_bluetooth_indicator(root_layer, 0, 0, false, true);
+  init_battery_gauge(root_layer, 125, 0, false, true);
+#endif  // PBL_ROUND
 
   time_t now = time(NULL);
   struct tm *startup_time = localtime(&now);
