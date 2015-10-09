@@ -129,10 +129,5 @@
         "file": "date_background.png"
       }
     ]
-  },
-  "targetPlatforms": [
-    "aplite",
-    "basalt"
-  ],
-  "sdkVersion": "3"
+  }
 }

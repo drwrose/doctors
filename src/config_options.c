@@ -31,16 +31,10 @@ void sanitize_config() {
   config.display_lang = config.display_lang % (DL_num_languages);
 }
 
-const char *show_config() {
-  static char buffer[80];
-  snprintf(buffer, 80, "bat: %d, bt: %d, sh: %d, hb: %d, bb: %d, h: %d, sd: %d, sh: %d, dl: %d", config.battery_gauge, config.bluetooth_indicator, config.second_hand, config.hour_buzzer, config.bluetooth_buzzer, config.hurt, config.show_date, config.show_hour, config.display_lang);
-  return buffer;
-}
-
 void save_config() {
   int wrote = persist_write_data(PERSIST_KEY, &config, sizeof(config));
   if (wrote == sizeof(config)) {
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Saved config (%d, %d): %s", PERSIST_KEY, sizeof(config), show_config());
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Saved config (%d, %d)", PERSIST_KEY, sizeof(config));
   } else {
     app_log(APP_LOG_LEVEL_ERROR, __FILE__, __LINE__, "Error saving config (%d, %d): %d", PERSIST_KEY, sizeof(config), wrote);
   }
@@ -53,7 +47,7 @@ void load_config() {
   int read_size = persist_read_data(PERSIST_KEY, &local_config, sizeof(local_config));
   if (read_size == sizeof(local_config)) {
     config = local_config;
-    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Loaded config (%d, %d): %s", PERSIST_KEY, sizeof(config), show_config());
+    app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Loaded config (%d, %d)", PERSIST_KEY, sizeof(config));
   } else {
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "No previous config (%d, %d): %d", PERSIST_KEY, sizeof(config), read_size);
   }
@@ -122,7 +116,7 @@ void receive_config_handler(DictionaryIterator *received, void *context) {
 
   sanitize_config();
 
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "New config: %s", show_config());
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "New config");
   if (memcmp(&orig_config, &config, sizeof(config)) == 0) {
     app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "Config is unchanged.");
   } else {

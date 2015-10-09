@@ -964,7 +964,6 @@ void handle_init() {
   struct tm *startup_time = localtime(&now);
   srand(now);
 
-  //start_transition(startup_time->tm_hour % 12, true);
   update_time(startup_time, true);
 
   apply_config();

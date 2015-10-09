@@ -137,8 +137,6 @@ def makeDoctors():
 def configWatch():
     slicePoints, doctorsImages, doctorsIds = makeDoctors()
 
-    slicePoints = ', '.join(map(str, slicePoints))
-
     configIn = open('%s/generated_config.h.in' % (resourcesDir), 'r').read()
     config = open('%s/generated_config.h' % (resourcesDir), 'w')
     print >> config, configIn % {
@@ -152,7 +150,8 @@ def configWatch():
     config = open('%s/generated_config.c' % (resourcesDir), 'w')
     print >> config, configIn % {
         'doctorsIds' : doctorsIds,
-        'slicePoints' : slicePoints,
+        'slicePointsRound' : ', '.join(map(str, slicePoints[180])),
+        'slicePointsRect' : ', '.join(map(str, slicePoints[144])),
         }
 
     resourceIn = open('%s/appinfo.json.in' % (rootDir), 'r').read()
