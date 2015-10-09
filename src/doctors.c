@@ -15,26 +15,32 @@
 #define SCREEN_WIDTH 180
 #define SCREEN_HEIGHT 180
 
-GRect time_layer_box = { { 60, 134}, { 97, 35 } };
-GRect hours_background_box = { { 0, 3 }, { 84, 31 } };
-GRect mins_background_box = { { 34, 3 }, { 50, 31 } };
-GRect hours_text_box = { { -15, 0 }, { 50, 35 } };
-GRect mins_text_box = { { 35, 0 }, { 97, 35 } };
+GRect mm_layer_box = { { 44, 151 }, { 92, 29 } };
+GRect mins_background_box = { { 0, 0 }, { 92, 29 } };
+GRect mins_mm_text_box = { { 22, -6 }, { 60, 35 } };
 
-GRect date_layer_box = { { 0, 143 }, { 50, 25 } };
-GRect date_background_box = { { 0, 0 }, { 50, 25 } };
-GRect date_text_box = { { 0, 0 }, { 50, 25 } };
+GRect hhmm_layer_box = { { 30, 146 }, { 120, 34 } };
+GRect hours_background_box = { { 0, 0 }, { 120, 34 } };
+GRect hours_text_box = { { 3, -5 }, { 50, 35 } };
+GRect mins_hhmm_text_box = { { 52, -5 }, { 97, 35 } };
+
+GRect date_layer_box = { { 49, 0 }, { 82, 22 } };
+GRect date_background_box = { { 0, 0 }, { 82, 22 } };
+GRect date_text_box = { { 16, -2 }, { 50, 25 } };
 
 #else  // PBL_ROUND
 
 #define SCREEN_WIDTH 144
 #define SCREEN_HEIGHT 168
 
-GRect time_layer_box = { { 60, 134}, { 97, 35 } };
+GRect mm_layer_box = { { 94, 134 }, { 50, 35 } };
+GRect mins_background_box = { { 0, 3 }, { 50, 31 } };
+GRect mins_mm_text_box = { { 1, 0 }, { 60, 35 } };
+
+GRect hhmm_layer_box = { { 60, 134 }, { 84, 35 } };
 GRect hours_background_box = { { 0, 3 }, { 84, 31 } };
-GRect mins_background_box = { { 34, 3 }, { 50, 31 } };
 GRect hours_text_box = { { -15, 0 }, { 50, 35 } };
-GRect mins_text_box = { { 35, 0 }, { 97, 35 } };
+GRect mins_hhmm_text_box = { { 35, 0 }, { 97, 35 } };
 
 GRect date_layer_box = { { 0, 143 }, { 50, 25 } };
 GRect date_background_box = { { 0, 0 }, { 50, 25 } };
@@ -66,7 +72,8 @@ int sprite_cx = 0;
 
 
 Layer *face_layer;   // The "face", in both senses (and also the hour indicator).
-Layer *time_layer; // The minutes and/or hour indicator.
+Layer *mm_layer;   // The time indicator when minutes only are displayed.
+Layer *hhmm_layer; // The time indicator when hours and minutes are displayed.
 Layer *date_layer; // optional day/date display.
 
 int face_value;       // The current face on display (or transitioning into)
@@ -298,7 +305,8 @@ void handle_blink(void *data) {
 
   if (config.second_hand) {
     hide_colon = true;
-    layer_mark_dirty(time_layer);
+    layer_mark_dirty(mm_layer);
+    layer_mark_dirty(hhmm_layer);
   }
 
   if (blink_timer != NULL) {
@@ -676,33 +684,23 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
   }
 }
   
-void time_layer_update_callback(Layer *me, GContext* ctx) {
-  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "time_layer");
+void mm_layer_update_callback(Layer *me, GContext* ctx) {
+  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "mm_layer");
   GFont font;
   static const int buffer_size = 128;
   char buffer[buffer_size];
 
+  // This layer includes only the minutes digits (preceded by a colon).
+  
   graphics_context_set_compositing_mode(ctx, GCompOpOr);
-  
-  if (config.show_hour) {
-    // Draw the background card for the hours digits.
-    if (hours_background.bitmap == NULL) {
-      hours_background = png_bwd_create(RESOURCE_ID_HOURS_BACKGROUND);
-    }
-    if (hours_background.bitmap != NULL) {
-      graphics_draw_bitmap_in_rect(ctx, hours_background.bitmap, hours_background_box);
-    }
 
-  } else {
-    // Draw the background card for the minutes digits.
-    if (mins_background.bitmap == NULL) {
-      mins_background = png_bwd_create(RESOURCE_ID_MINS_BACKGROUND);
-    }
-    if (mins_background.bitmap != NULL) {
-      graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, mins_background_box);
-    }
+  // Draw the background card for the minutes digits.
+  if (mins_background.bitmap == NULL) {
+    mins_background = png_bwd_create(RESOURCE_ID_MINS_BACKGROUND);
   }
-  
+  if (mins_background.bitmap != NULL) {
+    graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, mins_background_box);
+  }
   
   font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
 
@@ -712,28 +710,65 @@ void time_layer_update_callback(Layer *me, GContext* ctx) {
   graphics_context_set_text_color(ctx, GColorBlack);
 #endif // PBL_COLOR
 
-  // Draw the optional hours.
-  if (config.show_hour) {
-    snprintf(buffer, buffer_size, "%d", (hour_value ? hour_value : 12));
-    graphics_draw_text(ctx, buffer, font, hours_text_box,
-                       GTextOverflowModeTrailingEllipsis, GTextAlignmentRight,
-                       NULL);
-  }
-
   // Draw the (possibly blinking) colon.
   if (!config.second_hand || !hide_colon) {
-    graphics_draw_text(ctx, ":", font, mins_text_box,
+    graphics_draw_text(ctx, ":", font, mins_mm_text_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                        NULL);
   }
 
   // draw minutes
-  {
-    snprintf(buffer, buffer_size, " %02d", minute_value);
-    graphics_draw_text(ctx, buffer, font, mins_text_box,
+  snprintf(buffer, buffer_size, " %02d", minute_value);
+  graphics_draw_text(ctx, buffer, font, mins_mm_text_box,
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
+                     NULL);
+}
+  
+void hhmm_layer_update_callback(Layer *me, GContext* ctx) {
+  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "hhmm_layer");
+  GFont font;
+  static const int buffer_size = 128;
+  char buffer[buffer_size];
+
+  // This layer includes both the hours and the minutes digits (with a
+  // colon).
+  
+  graphics_context_set_compositing_mode(ctx, GCompOpOr);
+  
+  // Draw the background card for the hours digits.
+  if (hours_background.bitmap == NULL) {
+    hours_background = png_bwd_create(RESOURCE_ID_HOURS_BACKGROUND);
+  }
+  if (hours_background.bitmap != NULL) {
+    graphics_draw_bitmap_in_rect(ctx, hours_background.bitmap, hours_background_box);
+  }
+ 
+  font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
+
+#ifdef PBL_COLOR
+  graphics_context_set_text_color(ctx, GColorDukeBlue);
+#else  // PBL_COLOR
+  graphics_context_set_text_color(ctx, GColorBlack);
+#endif // PBL_COLOR
+
+  // Draw the hours.  We always use 12-hour time, because 12 Doctors.
+  snprintf(buffer, buffer_size, "%d", (hour_value ? hour_value : 12));
+  graphics_draw_text(ctx, buffer, font, hours_text_box,
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentRight,
+                     NULL);
+
+  // Draw the (possibly blinking) colon.
+  if (!config.second_hand || !hide_colon) {
+    graphics_draw_text(ctx, ":", font, mins_hhmm_text_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                        NULL);
   }
+
+  // draw minutes
+  snprintf(buffer, buffer_size, " %02d", minute_value);
+  graphics_draw_text(ctx, buffer, font, mins_hhmm_text_box,
+                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
+                     NULL);
 }
   
 void date_layer_update_callback(Layer *me, GContext* ctx) {
@@ -805,13 +840,14 @@ void update_time(struct tm *tick_time, bool for_startup) {
   if (hour_new != hour_value) {
     // Update the hour display.
     hour_value = hour_new;
-    layer_mark_dirty(time_layer);
+    layer_mark_dirty(hhmm_layer);
   }
 
   if (minute_new != minute_value) {
     // Update the minute display.
     minute_value = minute_new;
-    layer_mark_dirty(time_layer);
+    layer_mark_dirty(mm_layer);
+    layer_mark_dirty(hhmm_layer);
   }
 
   if (second_new != second_value) {
@@ -821,7 +857,8 @@ void update_time(struct tm *tick_time, bool for_startup) {
     if (config.second_hand) {
       // To blink the colon once per second, draw it now, then make it
       // go away after a half-second.
-      layer_mark_dirty(time_layer);
+      layer_mark_dirty(mm_layer);
+      layer_mark_dirty(hhmm_layer);
 
       if (blink_timer != NULL) {
         app_timer_cancel(blink_timer);
@@ -871,6 +908,14 @@ void apply_config() {
   }
 #endif
 
+  if (config.show_hour) {
+    layer_set_hidden(hhmm_layer, false);
+    layer_set_hidden(mm_layer, true);
+  } else {
+    layer_set_hidden(hhmm_layer, true);
+    layer_set_hidden(mm_layer, false);
+  }
+  
   refresh_battery_gauge();
   refresh_bluetooth_indicator();
 
@@ -932,9 +977,13 @@ void handle_init() {
   layer_set_update_proc(face_layer, &face_layer_update_callback);
   layer_add_child(root_layer, face_layer);
 
-  time_layer = layer_create(time_layer_box);
-  layer_set_update_proc(time_layer, &time_layer_update_callback);
-  layer_add_child(root_layer, time_layer);
+  mm_layer = layer_create(mm_layer_box);
+  layer_set_update_proc(mm_layer, &mm_layer_update_callback);
+  layer_add_child(root_layer, mm_layer);
+
+  hhmm_layer = layer_create(hhmm_layer_box);
+  layer_set_update_proc(hhmm_layer, &hhmm_layer_update_callback);
+  layer_add_child(root_layer, hhmm_layer);
 
   date_layer = layer_create(date_layer_box);
   layer_set_update_proc(date_layer, &date_layer_update_callback);
@@ -957,7 +1006,8 @@ void handle_deinit() {
   stop_transition();
 
   window_stack_pop_all(false);  // Not sure if this is needed?
-  layer_destroy(time_layer);
+  layer_destroy(mm_layer);
+  layer_destroy(hhmm_layer);
   layer_destroy(face_layer);
   window_destroy(window);
 
