@@ -15,20 +15,30 @@
 #define SCREEN_WIDTH 180
 #define SCREEN_HEIGHT 180
 
-GRect hours_background_box = { { 0, 3 }, { 97, 35 } };
-GRect minutes_background_box = { { 0, 3 }, { 97, 35 } };
-GRect hours_digits_box = { { -15, 0 }, { 50, 35 } };
-GRect minutes_digits_box = { { 35, 0 }, { 97, 35 } };
+GRect time_layer_box = { { 60, 134}, { 97, 35 } };
+GRect hours_background_box = { { 0, 3 }, { 84, 31 } };
+GRect mins_background_box = { { 34, 3 }, { 50, 31 } };
+GRect hours_text_box = { { -15, 0 }, { 50, 35 } };
+GRect mins_text_box = { { 35, 0 }, { 97, 35 } };
+
+GRect date_layer_box = { { 0, 143 }, { 50, 25 } };
+GRect date_background_box = { { 0, 0 }, { 50, 25 } };
+GRect date_text_box = { { 0, 0 }, { 50, 25 } };
 
 #else  // PBL_ROUND
 
 #define SCREEN_WIDTH 144
 #define SCREEN_HEIGHT 168
 
-GRect hours_background_box = { { 0, 3 }, { 97, 35 } };
-GRect minutes_background_box = { { 34, 3 }, { 97, 35 } };
-GRect hours_digits_box = { { -15, 0 }, { 50, 35 } };
-GRect minutes_digits_box = { { 35, 0 }, { 97, 35 } };
+GRect time_layer_box = { { 60, 134}, { 97, 35 } };
+GRect hours_background_box = { { 0, 3 }, { 84, 31 } };
+GRect mins_background_box = { { 34, 3 }, { 50, 31 } };
+GRect hours_text_box = { { -15, 0 }, { 50, 35 } };
+GRect mins_text_box = { { 35, 0 }, { 97, 35 } };
+
+GRect date_layer_box = { { 0, 143 }, { 50, 25 } };
+GRect date_background_box = { { 0, 0 }, { 50, 25 } };
+GRect date_text_box = { { 0, 0 }, { 50, 25 } };
 
 #endif  // PBL_ROUND
 
@@ -48,6 +58,7 @@ GRect minutes_digits_box = { { 35, 0 }, { 97, 35 } };
 Window *window;
 
 BitmapWithData mins_background;
+BitmapWithData hours_background;
 BitmapWithData date_background;
 
 // The horizontal center point of the sprite.
@@ -671,17 +682,25 @@ void time_layer_update_callback(Layer *me, GContext* ctx) {
   static const int buffer_size = 128;
   char buffer[buffer_size];
 
+  graphics_context_set_compositing_mode(ctx, GCompOpOr);
+  
   if (config.show_hour) {
     // Draw the background card for the hours digits.
-    graphics_context_set_compositing_mode(ctx, GCompOpOr);
-    graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, hours_background_box);
+    if (hours_background.bitmap == NULL) {
+      hours_background = png_bwd_create(RESOURCE_ID_HOURS_BACKGROUND);
+    }
+    if (hours_background.bitmap != NULL) {
+      graphics_draw_bitmap_in_rect(ctx, hours_background.bitmap, hours_background_box);
+    }
 
-  }
-
-  {
+  } else {
     // Draw the background card for the minutes digits.
-    graphics_context_set_compositing_mode(ctx, GCompOpOr);
-    graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, minutes_background_box);
+    if (mins_background.bitmap == NULL) {
+      mins_background = png_bwd_create(RESOURCE_ID_MINS_BACKGROUND);
+    }
+    if (mins_background.bitmap != NULL) {
+      graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, mins_background_box);
+    }
   }
   
   
@@ -696,14 +715,14 @@ void time_layer_update_callback(Layer *me, GContext* ctx) {
   // Draw the optional hours.
   if (config.show_hour) {
     snprintf(buffer, buffer_size, "%d", (hour_value ? hour_value : 12));
-    graphics_draw_text(ctx, buffer, font, hours_digits_box,
+    graphics_draw_text(ctx, buffer, font, hours_text_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight,
                        NULL);
   }
 
   // Draw the (possibly blinking) colon.
   if (!config.second_hand || !hide_colon) {
-    graphics_draw_text(ctx, ":", font, minutes_digits_box,
+    graphics_draw_text(ctx, ":", font, mins_text_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                        NULL);
   }
@@ -711,7 +730,7 @@ void time_layer_update_callback(Layer *me, GContext* ctx) {
   // draw minutes
   {
     snprintf(buffer, buffer_size, " %02d", minute_value);
-    graphics_draw_text(ctx, buffer, font, minutes_digits_box,
+    graphics_draw_text(ctx, buffer, font, mins_text_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                        NULL);
   }
@@ -723,13 +742,15 @@ void date_layer_update_callback(Layer *me, GContext* ctx) {
     static const int buffer_size = 128;
     char buffer[buffer_size];
     GFont font;
-    GRect box;
 
-    box = layer_get_frame(me);
-    box.origin.x = 0;
-    box.origin.y = 0;
     graphics_context_set_compositing_mode(ctx, GCompOpOr);
-    graphics_draw_bitmap_in_rect(ctx, date_background.bitmap, box);
+
+    if (date_background.bitmap == NULL) {
+      date_background = png_bwd_create(RESOURCE_ID_DATE_BACKGROUND);
+    }
+    if (date_background.bitmap != NULL) {
+      graphics_draw_bitmap_in_rect(ctx, date_background.bitmap, date_background_box);
+    }
    
     font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
     
@@ -737,7 +758,7 @@ void date_layer_update_callback(Layer *me, GContext* ctx) {
     const LangDef *lang = &lang_table[config.display_lang % num_langs];
     const char *weekday_name = lang->weekday_names[day_value];
     snprintf(buffer, buffer_size, "%s %d", weekday_name, date_value);
-    graphics_draw_text(ctx, buffer, font, box,
+    graphics_draw_text(ctx, buffer, font, date_text_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter,
                        NULL);
   }
@@ -852,6 +873,10 @@ void apply_config() {
 
   refresh_battery_gauge();
   refresh_bluetooth_indicator();
+
+  bwd_destroy(&mins_background);
+  bwd_destroy(&hours_background);
+  bwd_destroy(&date_background);
 }
 
 void handle_init() {
@@ -903,20 +928,15 @@ void handle_init() {
 
   window_stack_push(window, true);
 
-  mins_background = png_bwd_create(RESOURCE_ID_MINS_BACKGROUND);
-  assert(mins_background.bitmap != NULL);
-  date_background = png_bwd_create(RESOURCE_ID_DATE_BACKGROUND);
-  assert(date_background.bitmap != NULL);
-
   face_layer = layer_create(layer_get_bounds(root_layer));
   layer_set_update_proc(face_layer, &face_layer_update_callback);
   layer_add_child(root_layer, face_layer);
 
-  time_layer = layer_create(GRect(60, 134, 97, 35));
+  time_layer = layer_create(time_layer_box);
   layer_set_update_proc(time_layer, &time_layer_update_callback);
   layer_add_child(root_layer, time_layer);
 
-  date_layer = layer_create(GRect(0, 143, 50, 25));
+  date_layer = layer_create(date_layer_box);
   layer_set_update_proc(date_layer, &date_layer_update_callback);
   layer_add_child(root_layer, date_layer);
 
@@ -944,7 +964,6 @@ void handle_deinit() {
   for (int si = 0; si < NUM_SLICES; ++si) {
     bwd_destroy(&visible_face[si].face_image);
   }
-  bwd_destroy(&mins_background);
   bwd_destroy(&date_background);
 }
 
