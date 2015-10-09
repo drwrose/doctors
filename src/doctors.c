@@ -14,9 +14,22 @@
 #ifdef PBL_ROUND
 #define SCREEN_WIDTH 180
 #define SCREEN_HEIGHT 180
+
+GRect hours_background_box = { { 0, 3 }, { 97, 35 } };
+GRect minutes_background_box = { { 0, 3 }, { 97, 35 } };
+GRect hours_digits_box = { { -15, 0 }, { 50, 35 } };
+GRect minutes_digits_box = { { 35, 0 }, { 97, 35 } };
+
 #else  // PBL_ROUND
+
 #define SCREEN_WIDTH 144
 #define SCREEN_HEIGHT 168
+
+GRect hours_background_box = { { 0, 3 }, { 97, 35 } };
+GRect minutes_background_box = { { 34, 3 }, { 97, 35 } };
+GRect hours_digits_box = { { -15, 0 }, { 50, 35 } };
+GRect minutes_digits_box = { { 35, 0 }, { 97, 35 } };
+
 #endif  // PBL_ROUND
 
 // The frequency throughout the day at which the buzzer sounds, in seconds.
@@ -42,10 +55,7 @@ int sprite_cx = 0;
 
 
 Layer *face_layer;   // The "face", in both senses (and also the hour indicator).
-Layer *minute_layer; // The minutes indicator.
-Layer *second_layer; // The seconds indicator (a blinking colon).
-
-Layer *hour_layer; // optional hour display.
+Layer *time_layer; // The minutes and/or hour indicator.
 Layer *date_layer; // optional day/date display.
 
 int face_value;       // The current face on display (or transitioning into)
@@ -277,7 +287,7 @@ void handle_blink(void *data) {
 
   if (config.second_hand) {
     hide_colon = true;
-    layer_mark_dirty(second_layer);
+    layer_mark_dirty(time_layer);
   }
 
   if (blink_timer != NULL) {
@@ -653,29 +663,29 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       }
     }
   }
-  
-  // Finally, re-draw the minutes background card on top of the sprite.
-  GRect destination;
-  destination.size.w = 50;
-  destination.size.h = 31;
-  destination.origin.x = SCREEN_WIDTH - destination.size.w;
-  destination.origin.y = SCREEN_HEIGHT - destination.size.h;
-  graphics_context_set_compositing_mode(ctx, GCompOpOr);
-  graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, destination);
 }
   
-void minute_layer_update_callback(Layer *me, GContext* ctx) {
-  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "minute_layer");
+void time_layer_update_callback(Layer *me, GContext* ctx) {
+  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "time_layer");
   GFont font;
-  GRect box;
   static const int buffer_size = 128;
   char buffer[buffer_size];
 
-  font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
+  if (config.show_hour) {
+    // Draw the background card for the hours digits.
+    graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, hours_background_box);
 
-  box = layer_get_frame(me);
-  box.origin.x = 0;
-  box.origin.y = 0;
+  }
+
+  {
+    // Draw the background card for the minutes digits.
+    graphics_context_set_compositing_mode(ctx, GCompOpOr);
+    graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, minutes_background_box);
+  }
+  
+  
+  font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
 
 #ifdef PBL_COLOR
   graphics_context_set_text_color(ctx, GColorDukeBlue);
@@ -683,64 +693,25 @@ void minute_layer_update_callback(Layer *me, GContext* ctx) {
   graphics_context_set_text_color(ctx, GColorBlack);
 #endif // PBL_COLOR
 
-  snprintf(buffer, buffer_size, " %02d", minute_value);
-  graphics_draw_text(ctx, buffer, font, box,
-                     GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
-                     NULL);
-}
-  
-void hour_layer_update_callback(Layer *me, GContext* ctx) {
-  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "hour_layer");
-  GFont font;
-  GRect box;
-  static const int buffer_size = 128;
-  char buffer[buffer_size];
-
+  // Draw the optional hours.
   if (config.show_hour) {
-    box = layer_get_frame(me);
-    box.origin.x = 0;
-    box.origin.y = 3;
-
-    // Extend the background card to make room for the hours digits.
-    graphics_context_set_compositing_mode(ctx, GCompOpOr);
-    graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, box);
-
-    // Draw the hours digits.
-    font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
-
-    box.origin.x = -15;
-    box.origin.y = 0;
-    
-#ifdef PBL_COLOR
-    graphics_context_set_text_color(ctx, GColorDukeBlue);
-#else  // PBL_COLOR
-    graphics_context_set_text_color(ctx, GColorBlack);
-#endif // PBL_COLOR
-    
     snprintf(buffer, buffer_size, "%d", (hour_value ? hour_value : 12));
-    graphics_draw_text(ctx, buffer, font, box,
+    graphics_draw_text(ctx, buffer, font, hours_digits_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentRight,
                        NULL);
   }
-}
-  
-void second_layer_update_callback(Layer *me, GContext* ctx) {
+
+  // Draw the (possibly blinking) colon.
   if (!config.second_hand || !hide_colon) {
-    GFont font;
-    GRect box;
-  
-    font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
-    
-    box = layer_get_frame(me);
-    box.origin.x = 0;
-    box.origin.y = 0;
-    
-#ifdef PBL_COLOR
-    graphics_context_set_text_color(ctx, GColorDukeBlue);
-#else  // PBL_COLOR
-    graphics_context_set_text_color(ctx, GColorBlack);
-#endif // PBL_COLOR
-    graphics_draw_text(ctx, ":", font, box,
+    graphics_draw_text(ctx, ":", font, minutes_digits_box,
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
+                       NULL);
+  }
+
+  // draw minutes
+  {
+    snprintf(buffer, buffer_size, " %02d", minute_value);
+    graphics_draw_text(ctx, buffer, font, minutes_digits_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                        NULL);
   }
@@ -813,13 +784,13 @@ void update_time(struct tm *tick_time, bool for_startup) {
   if (hour_new != hour_value) {
     // Update the hour display.
     hour_value = hour_new;
-    layer_mark_dirty(hour_layer);
+    layer_mark_dirty(time_layer);
   }
 
   if (minute_new != minute_value) {
     // Update the minute display.
     minute_value = minute_new;
-    layer_mark_dirty(minute_layer);
+    layer_mark_dirty(time_layer);
   }
 
   if (second_new != second_value) {
@@ -829,7 +800,7 @@ void update_time(struct tm *tick_time, bool for_startup) {
     if (config.second_hand) {
       // To blink the colon once per second, draw it now, then make it
       // go away after a half-second.
-      layer_mark_dirty(second_layer);
+      layer_mark_dirty(time_layer);
 
       if (blink_timer != NULL) {
         app_timer_cancel(blink_timer);
@@ -941,17 +912,9 @@ void handle_init() {
   layer_set_update_proc(face_layer, &face_layer_update_callback);
   layer_add_child(root_layer, face_layer);
 
-  hour_layer = layer_create(GRect(60, 134, 50, 35));
-  layer_set_update_proc(hour_layer, &hour_layer_update_callback);
-  layer_add_child(root_layer, hour_layer);
-
-  minute_layer = layer_create(GRect(95, 134, 62, 35));
-  layer_set_update_proc(minute_layer, &minute_layer_update_callback);
-  layer_add_child(root_layer, minute_layer);
-
-  second_layer = layer_create(GRect(95, 134, 16, 35));
-  layer_set_update_proc(second_layer, &second_layer_update_callback);
-  layer_add_child(root_layer, second_layer);
+  time_layer = layer_create(GRect(60, 134, 97, 35));
+  layer_set_update_proc(time_layer, &time_layer_update_callback);
+  layer_add_child(root_layer, time_layer);
 
   date_layer = layer_create(GRect(0, 143, 50, 25));
   layer_set_update_proc(date_layer, &date_layer_update_callback);
@@ -974,7 +937,7 @@ void handle_deinit() {
   stop_transition();
 
   window_stack_pop_all(false);  // Not sure if this is needed?
-  layer_destroy(minute_layer);
+  layer_destroy(time_layer);
   layer_destroy(face_layer);
   window_destroy(window);
 

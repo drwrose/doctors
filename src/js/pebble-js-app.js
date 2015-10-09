@@ -122,7 +122,7 @@ Pebble.addEventListener("ready", function(e) {
 Pebble.addEventListener("showConfiguration", function(e) {
     console.log("showConfiguration starting");
     initialize();
-    var url = "http://www.ddrose.com/pebble/doctors_2_8_configure.html?battery_gauge=" + battery_gauge + "&bluetooth_indicator=" + bluetooth_indicator + "&second_hand=" + second_hand + "&hour_buzzer=" + hour_buzzer + "&bluetooth_buzzer=" + bluetooth_buzzer + "&hurt=" + hurt + "&show_date=" + show_date + "&show_hour=" + show_hour + "&display_lang=" + display_lang;
+    var url = "http://s3.amazonaws.com/us.ddrose/pebble/doctors/html/doctors_3_0_configure.html?battery_gauge=" + battery_gauge + "&bluetooth_indicator=" + bluetooth_indicator + "&second_hand=" + second_hand + "&hour_buzzer=" + hour_buzzer + "&bluetooth_buzzer=" + bluetooth_buzzer + "&hurt=" + hurt + "&show_date=" + show_date + "&show_hour=" + show_hour + "&display_lang=" + display_lang;
     console.log("showConfiguration: " + url);
     var result = Pebble.openURL(url);
     console.log("openURL result: " + result);
@@ -134,10 +134,10 @@ Pebble.addEventListener("webviewclosed", function(e) {
     console.log(e.response);
 
     if (e.response && e.response != 'CANCELLED') {
-	var configuration = JSON.parse(e.response);
-  	console.log("sending runtime config: " + JSON.stringify(configuration));
-	Pebble.sendAppMessage(configuration, sent_ack, sent_nack);
-	
+	// Get the configuration from the webpage
+	var configuration = JSON.parse(decodeURIComponent(e.response));
+
+	// And record the longterm storage in the phone app.
 	battery_gauge = configuration["battery_gauge"];
 	localStorage.setItem("doctors:battery_gauge", battery_gauge);
 	
@@ -164,6 +164,10 @@ Pebble.addEventListener("webviewclosed", function(e) {
 	
 	display_lang = configuration["display_lang"];
 	localStorage.setItem("doctors:display_lang", display_lang);
+
+	// And send it on to Pebble.
+  	console.log("sending runtime config: " + JSON.stringify(configuration));
+	Pebble.sendAppMessage(configuration, sent_ack, sent_nack);
 
 	logLocalStorage();
     }
