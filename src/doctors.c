@@ -457,6 +457,9 @@ load_next_face_slice(int si, int face_value) {
     next_face_slice = si;
     int resource_id = face_resource_ids[face_value][si];
     next_face_image = rle_bwd_create(resource_id);
+#ifdef PBL_COLOR
+    assert(next_face_image.bitmap == NULL || gbitmap_get_format(next_face_image.bitmap) == GBitmapFormat4BitPalette || gbitmap_get_format(next_face_image.bitmap) == GBitmapFormat2BitPalette);
+#endif  // PBL_COLOR
   }
 }
 
@@ -480,34 +483,16 @@ load_face_slice(int si, int face_value) {
 // Draw the face in transition from one to the other, with the
 // division line at wipe_x.
 
-// Draws the indicated fullscreen bitmap completely.
-void draw_fullscreen_complete(GContext *ctx, BitmapWithData image) {
-  GRect destination;
-  destination.origin.x = 0;
-  destination.origin.y = 0;
-  destination.size.w = SCREEN_WIDTH;
-  destination.size.h = SCREEN_HEIGHT;
-
-  if (image.bitmap == NULL) {
-    // The bitmap wasn't loaded successfully; just clear the region.
-    // This is a fallback.
-    graphics_context_set_fill_color(ctx, GColorBlack);
-    graphics_fill_rect(ctx, destination, 0, GCornerNone);
-  } else {
-    // Draw the bitmap in the region.
-    graphics_draw_bitmap_in_rect(ctx, image.bitmap, destination);
-  }
-}
-
 // Draws the indicated fullscreen bitmap only to the left of wipe_x.
 void draw_fullscreen_wiped(GContext *ctx, BitmapWithData image, int wipe_x) {
-  if (wipe_x < 0) {
-    // Trivial return.
+  if (wipe_x <= 0) {
+    // Trivial no-op.
     return;
-  } else if (wipe_x >= SCREEN_WIDTH) {
+  }
+
+  if (wipe_x > SCREEN_WIDTH) {
     // Trivial fill.
-    draw_fullscreen_complete(ctx, image);
-    return;
+    wipe_x = SCREEN_WIDTH;
   }
   
   GRect destination;
@@ -522,9 +507,68 @@ void draw_fullscreen_wiped(GContext *ctx, BitmapWithData image, int wipe_x) {
     graphics_context_set_fill_color(ctx, GColorBlack);
     graphics_fill_rect(ctx, destination, 0, GCornerNone);
   } else {
+
     // Draw the bitmap in the region.
+#ifdef PBL_ROUND
+    // The round model, complicated because we have created a concept
+    // of a GBitmapFormat4BitPaletteCircular: it's a 180x180 4-bit
+    // palette image, with only a subset of pixels included that are
+    // within the visible circle.  It's exactly the same subset
+    // described in the actual framebuffer, but we have to do the math
+    // ourselves.
+    uint8_t *source_data = gbitmap_get_data(image.bitmap);
+    GColor *source_palette = gbitmap_get_palette(image.bitmap);
+
+    int num_bits;
+    switch (gbitmap_get_format(image.bitmap)) {
+    case GBitmapFormat4BitPalette:
+      num_bits = 4;
+      break;
+    case GBitmapFormat2BitPalette:
+      num_bits = 2;
+      break;
+    default:
+      assert(false);
+      num_bits = 1;
+    }
+    int bit_mask = (1 << num_bits) - 1;
+
+    GBitmap *fb = graphics_capture_frame_buffer(ctx);
+    uint8_t *sp = source_data;
+    int bit_shift = 8 - num_bits;
+
+    for (int y = 0; y < SCREEN_HEIGHT; ++y) {
+      GBitmapDataRowInfo info = gbitmap_get_data_row_info(fb, y);
+      uint8_t *row = &info.data[info.min_x];
+      uint8_t *dp = row;
+      int width = info.max_x - info.min_x + 1;
+      for (int x = info.min_x; x <= info.max_x; ++x) {
+        int value = ((*sp) >> bit_shift) & bit_mask;
+
+        if (x <= wipe_x) {
+          *dp = source_palette[value].argb;
+          ++dp;
+        }
+        bit_shift -= num_bits;
+        if (bit_shift < 0) {
+          bit_shift = 8 - num_bits;
+          ++sp;
+        }
+      }
+    }
+
+    graphics_release_frame_buffer(ctx, fb);
+    
+#else  // PBL_ROUND
+    // The rectangular model, pretty straightforward.
     graphics_draw_bitmap_in_rect(ctx, image.bitmap, destination);
+#endif  // PBL_ROUND
   }
+}
+
+// Draws the indicated fullscreen bitmap completely.
+void draw_fullscreen_complete(GContext *ctx, BitmapWithData image) {
+  draw_fullscreen_wiped(ctx, image, SCREEN_WIDTH);
 }
 
 void draw_face_transition(Layer *me, GContext *ctx, int wipe_x) {

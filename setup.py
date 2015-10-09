@@ -41,6 +41,191 @@ def usage(code, msg = ''):
 rootDir = os.path.dirname(__file__) or '.'
 resourcesDir = os.path.join(rootDir, 'resources')
 
+# These are the min_x and min_y pairs for each of the 180 rows of
+# GBitmapFormat8BitCircular-format images in Chalk.
+circularBufferSize = [
+    (76, 103),
+    (71, 108),
+    (66, 113),
+    (63, 116),
+    (60, 119),
+    (57, 122),
+    (55, 124),
+    (52, 127),
+    (50, 129),
+    (48, 131),
+    (46, 133),
+    (45, 134),
+    (43, 136),
+    (41, 138),
+    (40, 139),
+    (38, 141),
+    (37, 142),
+    (36, 143),
+    (34, 145),
+    (33, 146),
+    (32, 147),
+    (31, 148),
+    (29, 150),
+    (28, 151),
+    (27, 152),
+    (26, 153),
+    (25, 154),
+    (24, 155),
+    (23, 156),
+    (22, 157),
+    (22, 157),
+    (21, 158),
+    (20, 159),
+    (19, 160),
+    (18, 161),
+    (18, 161),
+    (17, 162),
+    (16, 163),
+    (15, 164),
+    (15, 164),
+    (14, 165),
+    (13, 166),
+    (13, 166),
+    (12, 167),
+    (12, 167),
+    (11, 168),
+    (10, 169),
+    (10, 169),
+    (9, 170),
+    (9, 170),
+    (8, 171),
+    (8, 171),
+    (7, 172),
+    (7, 172),
+    (7, 172),
+    (6, 173),
+    (6, 173),
+    (5, 174),
+    (5, 174),
+    (5, 174),
+    (4, 175),
+    (4, 175),
+    (4, 175),
+    (3, 176),
+    (3, 176),
+    (3, 176),
+    (2, 177),
+    (2, 177),
+    (2, 177),
+    (2, 177),
+    (2, 177),
+    (1, 178),
+    (1, 178),
+    (1, 178),
+    (1, 178),
+    (1, 178),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (0, 179),
+    (1, 178),
+    (1, 178),
+    (1, 178),
+    (1, 178),
+    (1, 178),
+    (2, 177),
+    (2, 177),
+    (2, 177),
+    (2, 177),
+    (2, 177),
+    (3, 176),
+    (3, 176),
+    (3, 176),
+    (4, 175),
+    (4, 175),
+    (4, 175),
+    (5, 174),
+    (5, 174),
+    (5, 174),
+    (6, 173),
+    (6, 173),
+    (7, 172),
+    (7, 172),
+    (7, 172),
+    (8, 171),
+    (8, 171),
+    (9, 170),
+    (9, 170),
+    (10, 169),
+    (10, 169),
+    (11, 168),
+    (12, 167),
+    (12, 167),
+    (13, 166),
+    (13, 166),
+    (14, 165),
+    (15, 164),
+    (15, 164),
+    (16, 163),
+    (17, 162),
+    (18, 161),
+    (18, 161),
+    (19, 160),
+    (20, 159),
+    (21, 158),
+    (22, 157),
+    (22, 157),
+    (23, 156),
+    (24, 155),
+    (25, 154),
+    (26, 153),
+    (27, 152),
+    (28, 151),
+    (29, 150),
+    (31, 148),
+    (32, 147),
+    (33, 146),
+    (34, 145),
+    (36, 143),
+    (37, 142),
+    (38, 141),
+    (40, 139),
+    (41, 138),
+    (43, 136),
+    (45, 134),
+    (46, 133),
+    (48, 131),
+    (50, 129),
+    (52, 127),
+    (55, 124),
+    (57, 122),
+    (60, 119),
+    (63, 116),
+    (66, 113),
+    (71, 108),
+    (76, 103),
+    ]
+
 doctorsImage = """
       {
         "name": "%(resource_base)s",
@@ -56,6 +241,31 @@ def enquoteStrings(strings):
     for str in strings:
         quoted.append('"%s"' % (str))
     return quoted
+
+def circularizeImage(source):
+    # Apply a circular crop to a 180x180 image, constructing a
+    # GBitmapFormat4BitPaletteCircular image.  This will leave us
+    # 25792 pixels, which we store consecutively into a 208x124 pixel
+    # image.
+    assert source.size == (180, 180)
+    dest_size = (208, 124)
+
+    dest = PIL.Image.new(source.mode, dest_size)
+    if source.mode in ['P', 'L']:
+        dest.putpalette(source.getpalette())
+
+    dy = 0
+    dx = 0
+    for sy in range(180):
+        min_x, max_x = circularBufferSize[sy]
+        for sx in range(min_x, max_x + 1):
+            dest.putpixel((dx, dy), source.getpixel((sx, sy)))
+            dx += 1
+            if dx >= dest_size[0]:
+                dx = 0
+                dy += 1
+    assert dy == dest_size[1] and dx == 0
+    return dest
 
 def makeDoctors():
     """ Makes the resource string for the list of doctors images. """
@@ -100,7 +310,7 @@ def makeDoctors():
             resource_base = '%s_%s' % (basename.upper(), slice + 1)
 
             if numSlices != 1:
-                # Also make slices of the mod (color) variants.
+                # Make slices.
                 for mod, modImage in mods.items():
                     screenWidth, screenHeight = 144, 172
                     if mod == '~color~round':
@@ -114,13 +324,22 @@ def makeDoctors():
                     filename = 'slices/%s_%s_of_%s%s.png' % (basename, slice + 1, numSlices, mod)
                     image.save('%s/%s' % (resourcesDir, filename))
 
-            if numSlices != 1:
-                # Make slices.
                 filename = 'slices/%s_%s_of_%s.png' % (basename, slice + 1, numSlices)
             else:
                 # Special case--no slicing needed; just use the
-                # original full-sized image.
-                filename = '%s.png' % (basename)
+                # original full-sized image.  However, we still copy
+                # it into the slices folder, because the ~color~round
+                # version (for Chalk) will need to get circularized.
+                for mod, modImage in mods.items():
+                    image = modImage
+                    if mod == '~color~round':
+                        image = circularizeImage(modImage)
+
+                    filename = 'slices/%s%s.png' % (basename, mod)
+                    image.save('%s/%s' % (resourcesDir, filename))
+
+                filename = 'slices/%s.png' % (basename)
+                
             rleFilename, ptype = make_rle(filename, useRle = supportRle, modes = mods.keys())
             
             doctorsImages += doctorsImage % {
