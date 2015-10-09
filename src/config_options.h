@@ -30,11 +30,14 @@ typedef enum {
 typedef enum {
   DL_english,
   DL_french,
-  DL_german,
   DL_italian,
-  DL_dutch,
   DL_spanish,
   DL_portuguese,
+  DL_german,
+  DL_dutch,
+  DL_danish,
+  DL_swedish,
+  DL_icelandic,
   DL_num_languages,
 } DisplayLanguages;
 
