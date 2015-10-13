@@ -293,12 +293,10 @@ def makeDoctors():
         ## assert source.size == (screenWidth, screenHeight)
 
         mods = {}
-        for mod in [ '~bw', '~color~rect', '~color~round' ]:
+        for mod in [ '~bw', '~color' ]:
             if mod == '~bw' and 'aplite' not in targetPlatforms:
                 continue
-            if mod == '~color~rect' and 'basalt' not in targetPlatforms:
-                continue
-            if mod == '~color~round' and 'chalk' not in targetPlatforms:
+            if mod == '~color' and 'basalt' not in targetPlatforms:
                 continue
             modFilename = '%s/%s%s.png' % (resourcesDir, basename, mod)
             if os.path.exists(modFilename):
@@ -406,6 +404,6 @@ for opt, arg in opts:
         usage(0)
 
 if not targetPlatforms:
-    targetPlatforms = [ "aplite", "basalt", "chalk" ]
+    targetPlatforms = [ "aplite", "basalt" ]
     
 configWatch()

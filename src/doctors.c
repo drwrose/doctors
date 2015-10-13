@@ -205,7 +205,7 @@ void flip_bitmap_x(GBitmap *image) {
     break;
 
   case GBitmapFormat8Bit:
-  case GBitmapFormat8BitCircular:
+    //  case GBitmapFormat8BitCircular:
     pixels_per_byte = 1;
     break;
   }
