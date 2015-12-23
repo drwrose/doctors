@@ -9,7 +9,7 @@ BitmapWithData bluetooth_mask;
 Layer *bluetooth_layer;
 bool bluetooth_state = false;
 
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_PLATFORM_APLITEx
 
 // On Aplite, these parameters are passed in.
 bool bluetooth_invert = false;
@@ -33,7 +33,7 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
 
   GCompOp fg_mode;
 
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_PLATFORM_APLITEx
   GCompOp mask_mode;
   if (bluetooth_invert) {
     fg_mode = GCompOpSet;
@@ -61,7 +61,7 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
     if (config.bluetooth_indicator != IM_when_needed) {
       // We don't draw the "connected" bitmap if bluetooth_indicator
       // is set to IM_when_needed; only on IM_always.
-#ifdef PBL_PLATFORM_APLITE      
+#ifdef PBL_PLATFORM_APLITEx
       if (bluetooth_mask.bitmap == NULL) {
         bluetooth_mask = png_bwd_create(RESOURCE_ID_BLUETOOTH_MASK);
       }
@@ -77,7 +77,7 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
   } else {
     // We always draw the disconnected bitmap (except in the IM_off
     // case, of course).
-#ifdef PBL_PLATFORM_APLITE      
+#ifdef PBL_PLATFORM_APLITEx
     if (bluetooth_mask.bitmap == NULL) {
       bluetooth_mask = png_bwd_create(RESOURCE_ID_BLUETOOTH_MASK);
     }
@@ -98,7 +98,7 @@ void handle_bluetooth(bool connected) {
 }
 
 void init_bluetooth_indicator(Layer *window_layer) {
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_PLATFORM_APLITEx
   bluetooth_invert = false;
 #endif  // PBL_PLATFORM_APLITE
   bluetooth_layer = layer_create(GRect(0, 0, 18, 18));
@@ -108,7 +108,7 @@ void init_bluetooth_indicator(Layer *window_layer) {
 }
 
 void move_bluetooth_indicator(int x, int y, bool invert) {
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_PLATFORM_APLITEx
   bluetooth_invert = invert;
 #endif  // PBL_PLATFORM_APLITE
   layer_set_frame((Layer *)bluetooth_layer, GRect(x, y, 18, 18));

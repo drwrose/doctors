@@ -28,111 +28,96 @@
     "media": [
       {
         "menuIcon": true,
-        "type": "png",
+        "type": "bitmap",
         "name": "APP_ICON",
         "file": "app_icon.png"
       },
       {
         "name": "BATTERY_GAUGE_EMPTY",
         "file": "battery_gauge_empty.png",
-        "type": "pbi"
+        "type": "bitmap",
+        "memoryFormat": "1Bit"
       },
       {
         "name": "BATTERY_GAUGE_CHARGED",
         "file": "battery_gauge_charged.png",
-        "type": "pbi"
+        "type": "bitmap",
+        "memoryFormat": "1Bit"
       },
       {
         "name": "BATTERY_GAUGE_MASK",
         "file": "battery_gauge_mask.png",
-        "type": "pbi"
+        "type": "bitmap",
+        "memoryFormat": "1Bit"
       },
       {
         "name": "CHARGING",
         "file": "charging.png",
-        "type": "pbi"
+        "type": "bitmap",
+        "memoryFormat": "1Bit"
       },
       {
         "name": "CHARGING_MASK",
         "file": "charging_mask.png",
-        "type": "pbi"
+        "type": "bitmap",
+        "memoryFormat": "1Bit"
       },
       {
         "name": "BLUETOOTH_DISCONNECTED",
         "file": "bluetooth_disconnected.png",
-        "type": "png"
+        "type": "bitmap"
       },
       {
         "name": "BLUETOOTH_CONNECTED",
         "file": "bluetooth_connected.png",
-        "type": "png"
-      },
-      {
-        "name": "BLUETOOTH_MASK",
-        "file": "bluetooth_mask.png",
-        "type": "png",
-        "targetPlatforms": [
-          "aplite"
-        ]
+        "type": "bitmap"
       },
 %(doctorsImages)s
       {
-        "type": "png",
+        "type": "bitmap",
         "name": "TARDIS_01",
         "file": "tardis_01.png"
       },
       {
-        "type": "png",
+        "type": "bitmap",
         "name": "TARDIS_02",
         "file": "tardis_02.png"
       },
       {
-        "type": "png",
+        "type": "bitmap",
         "name": "TARDIS_03",
         "file": "tardis_03.png"
       },
       {
-        "type": "png",
+        "type": "bitmap",
         "name": "TARDIS_04",
         "file": "tardis_04.png"
       },
       {
-        "type": "pbi",
-        "name": "TARDIS_MASK",
-        "file": "tardis_masks.png"
-      },
-      {
-        "type": "png",
+        "type": "bitmap",
         "name": "K9",
         "file": "k9.png"
       },
       {
-        "type": "pbi",
-        "name": "K9_MASK",
-        "file": "k9_mask.png"
-      },
-      {
-        "type": "png",
+        "type": "bitmap",
         "name": "DALEK",
         "file": "dalek.png"
       },
       {
-        "type": "pbi",
-        "name": "DALEK_MASK",
-        "file": "dalek_mask.png"
-      },
-      {
-        "type": "pbi",
+        "type": "bitmap",
+        "memoryFormat": "1Bit",
         "name": "MINS_BACKGROUND",
         "file": "mins_background.png"
       },
       {
-        "type": "pbi",
+        "type": "bitmap",
+        "memoryFormat": "1Bit",
         "name": "HOURS_BACKGROUND",
         "file": "hours_background.png"
       },
       {
-        "type": "pbi",
+        "type": "bitmap",
+        "memoryFormat": "1Bit",
         "name": "DATE_BACKGROUND",
         "file": "date_background.png"
       }

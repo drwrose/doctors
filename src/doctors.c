@@ -172,6 +172,11 @@ uint8_t reverse_bits(uint8_t b) {
   return ((b * 0x0802LU & 0x22110LU) | (b * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16; 
 }
 
+// Reverse the four two-bit components of a byte.
+uint8_t reverse_2bits(uint8_t b) {
+  return ((b & 0x3) << 6) | ((b & 0xc) << 2) | ((b & 0x30) >> 2) | ((b & 0xc0) >> 6);
+}
+
 // Reverse the high nibble and low nibble of a byte.
 uint8_t reverse_nibbles(uint8_t b) {
   return ((b & 0xf) << 4) | ((b >> 4) & 0xf);
@@ -189,7 +194,7 @@ void flip_bitmap_x(GBitmap *image) {
   int width = gbitmap_get_bounds(image).size.w;
   int pixels_per_byte = 8;
 
-#ifndef PBL_PLATFORM_APLITE
+#ifndef PBL_PLATFORM_APLITEx
   switch (gbitmap_get_format(image)) {
   case GBitmapFormat1Bit:
   case GBitmapFormat1BitPalette:
@@ -232,9 +237,14 @@ void flip_bitmap_x(GBitmap *image) {
       }
       break;
 
-#ifndef PBL_PLATFORM_APLITE
+#ifndef PBL_PLATFORM_APLITEx
     case 4:
-      // TODO.
+      for (int x1 = (width_bytes - 1) / 2; x1 >= 0; --x1) {
+        int x2 = width_bytes - 1 - x1;
+        uint8_t b = reverse_2bits(row[x1]);
+        row[x1] = reverse_2bits(row[x2]);
+        row[x2] = b;
+      }
       break;
       
     case 2:
@@ -389,7 +399,7 @@ void start_transition(int face_new, bool for_startup) {
   switch (sprite_sel) {
   case SPRITE_TARDIS:
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition TARDIS, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_PLATFORM_APLITEx
     sprite_mask = png_bwd_create(RESOURCE_ID_TARDIS_MASK);
 #endif  // PBL_PLATFORM_APLITE
     //sprite_width = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
@@ -399,7 +409,7 @@ void start_transition(int face_new, bool for_startup) {
 
   case SPRITE_K9:
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition K9, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_PLATFORM_APLITEx
     sprite_mask = png_bwd_create(RESOURCE_ID_K9_MASK);
 #endif  // PBL_PLATFORM_APLITE
     sprite = png_bwd_create(RESOURCE_ID_K9);
@@ -418,7 +428,7 @@ void start_transition(int face_new, bool for_startup) {
 
   case SPRITE_DALEK:
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition DALEK, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_PLATFORM_APLITEx
     sprite_mask = png_bwd_create(RESOURCE_ID_DALEK_MASK);
 #endif  // PBL_PLATFORM_APLITE
     sprite = png_bwd_create(RESOURCE_ID_DALEK);
@@ -806,7 +816,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       destination.size.h = gbitmap_get_bounds(sprite.bitmap).size.h;
       destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
       destination.origin.x = wipe_x - sprite_cx;
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_PLATFORM_APLITEx
       graphics_context_set_compositing_mode(ctx, GCompOpOr);
 #else  //  PBL_PLATFORM_APLITE
       graphics_context_set_compositing_mode(ctx, GCompOpSet);
@@ -834,7 +844,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
         destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
         destination.origin.x = wipe_x - sprite_cx;
         
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_PLATFORM_APLITEx
         graphics_context_set_compositing_mode(ctx, GCompOpOr);
 #else  //  PBL_PLATFORM_APLITE
         graphics_context_set_compositing_mode(ctx, GCompOpSet);

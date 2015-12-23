@@ -535,87 +535,9 @@ def make_rle(filename, prefix = 'resources/', useRle = True, platformType = 'aut
             make_rle_image(prefix + rleFilename, image, platformType = platformType)
         return rleFilename, 'raw'
     else:
-        ptype = 'png'
+        ptype = 'bitmap'
         print filename
         return filename, ptype
-
-def make_rle_trans(filename, prefix = 'resources/', useRle = True, platformType = 'auto', modes = []):
-    basename, ext = os.path.splitext(filename)
-    for mode in modes:
-        # Handle the specialized mode files.
-        if os.path.exists(prefix + basename + mode + ext):
-            make_rle_trans_file(basename + mode + ext, prefix = prefix, useRle = useRle, platformType = platformType)
-
-    # Primary file.
-    if os.path.exists(prefix + basename + ext):
-        rleWhiteFilename, rleBlackFilename, ptype = make_rle_trans_file(filename, prefix = prefix, useRle = useRle, platformType = platformType)
-
-    if useRle:
-        rleWhiteFilename = basename + '_white.rle'
-        rleBlackFilename = basename + '_black.rle'
-    else:
-        rleWhiteFilename = basename + '_white.png'
-        rleBlackFilename = basename + '_black.png'
-
-    return rleWhiteFilename, rleBlackFilename, ptype
-        
-
-def make_rle_trans_file(filename, prefix = 'resources/', useRle = True, platformType = 'auto'):
-    if platformType == 'auto' and filename.find('~bw') != -1:
-        platformType = 'aplite'
-
-    basename = os.path.splitext(filename)[0]
-    mode = ''
-    if '~' in basename:
-        basename, mode = basename.split('~', 1)
-        mode = '~' + mode
-
-    if platformType != 'aplite':
-        # In the basalt case, this is almost the same as make_rle(),
-        # but we have also a meaningless "black" image.
-        if useRle:
-            image = PIL.Image.open(prefix + filename)
-            rleWhiteFilename = basename + '_white' + mode + '.rle'
-            rleBlackFilename = basename + '_black' + mode + '.rle'
-            make_rle_image(prefix + rleWhiteFilename, image, platformType = platformType)
-            open(prefix + rleBlackFilename, 'wb')
-            return rleWhiteFilename, rleBlackFilename, 'raw'
-        else:
-            rleWhiteFilename = basename + '_white' + mode + '.png'
-            shutil.copyfile(prefix + filename, prefix + rleWhiteFilename)
-            rleBlackFilename = basename + '_black' + mode + '.png'
-            image = PIL.Image.new('1', (1, 1), 0)
-            image.save(prefix + rleBlackFilename)
-            return rleWhiteFilename, rleBlackFilename, 'png'
-            
-    # In the aplite case, we split the image into white and black versions.
-    image = PIL.Image.open(prefix + filename)
-    bits, alpha = image.convert('LA').split()
-    bits = bits.convert('1')
-    alpha = alpha.convert('1')
-
-    zero = PIL.Image.new('1', image.size, 0)
-    one = PIL.Image.new('1', image.size, 1)
-
-    black = PIL.Image.composite(zero, one, bits)
-    black = PIL.Image.composite(black, zero, alpha)
-    white = PIL.Image.composite(one, zero, bits)
-    white = PIL.Image.composite(white, zero, alpha)
-    
-    if useRle:
-        rleWhiteFilename = basename + '_white' + mode + '.rle'
-        make_rle_image(prefix + rleWhiteFilename, white)
-        rleBlackFilename = basename + '_black' + mode + '.rle'
-        make_rle_image(prefix + rleBlackFilename, black)
-        
-        return rleWhiteFilename, rleBlackFilename, 'raw'
-    else:
-        rleWhiteFilename = basename + '_white' + mode + '.png'
-        white.save(prefix + rleWhiteFilename)
-        rleBlackFilename = basename + '_black' + mode + '.png'
-        black.save(prefix + rleBlackFilename)
-        print filename
-        return rleWhiteFilename, rleBlackFilename, 'pbi'
 
 def unpack_rle_file(rleFilename):
     rb = open(rleFilename, 'rb')
