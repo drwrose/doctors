@@ -120,7 +120,6 @@ int num_transition_frames;  // Total frames for transition
 
 // The mask and image for the moving sprite across the wipe.
 int sprite_sel;
-BitmapWithData sprite_mask;
 BitmapWithData sprite;
 int sprite_width;
 
@@ -194,7 +193,6 @@ void flip_bitmap_x(GBitmap *image) {
   int width = gbitmap_get_bounds(image).size.w;
   int pixels_per_byte = 8;
 
-#ifndef PBL_PLATFORM_APLITEx
   switch (gbitmap_get_format(image)) {
   case GBitmapFormat1Bit:
   case GBitmapFormat1BitPalette:
@@ -214,7 +212,6 @@ void flip_bitmap_x(GBitmap *image) {
     pixels_per_byte = 1;
     break;
   }
-#endif  // PBL_PLATFORM_APLITE
     
   assert(width % pixels_per_byte == 0);  // This must be an even divisor, by our convention.
   int width_bytes = width / pixels_per_byte;
@@ -237,7 +234,6 @@ void flip_bitmap_x(GBitmap *image) {
       }
       break;
 
-#ifndef PBL_PLATFORM_APLITEx
     case 4:
       for (int x1 = (width_bytes - 1) / 2; x1 >= 0; --x1) {
         int x2 = width_bytes - 1 - x1;
@@ -264,7 +260,6 @@ void flip_bitmap_x(GBitmap *image) {
         row[x2] = b;
       }
       break;
-#endif  // PBL_PLATFORM_APLITE
     }
   }
 }
@@ -352,7 +347,6 @@ void stop_transition() {
   next_face_value = -1;
   next_face_slice = -1;
   bwd_destroy(&next_face_image);
-  bwd_destroy(&sprite_mask);
   bwd_destroy(&sprite);
 
   // Stop the transition timer.
@@ -399,19 +393,12 @@ void start_transition(int face_new, bool for_startup) {
   switch (sprite_sel) {
   case SPRITE_TARDIS:
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition TARDIS, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-#ifdef PBL_PLATFORM_APLITEx
-    sprite_mask = png_bwd_create(RESOURCE_ID_TARDIS_MASK);
-#endif  // PBL_PLATFORM_APLITE
-    //sprite_width = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
     sprite_width = 112;
     sprite_cx = 72;
     break;
 
   case SPRITE_K9:
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition K9, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-#ifdef PBL_PLATFORM_APLITEx
-    sprite_mask = png_bwd_create(RESOURCE_ID_K9_MASK);
-#endif  // PBL_PLATFORM_APLITE
     sprite = png_bwd_create(RESOURCE_ID_K9);
     if (sprite.bitmap != NULL) {
       sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
@@ -420,7 +407,6 @@ void start_transition(int face_new, bool for_startup) {
     sprite_cx = 41;
 
     if (wipe_direction) {
-      flip_bitmap_x(sprite_mask.bitmap);
       flip_bitmap_x(sprite.bitmap);
       sprite_cx = sprite_width - sprite_cx;
     }
@@ -428,9 +414,6 @@ void start_transition(int face_new, bool for_startup) {
 
   case SPRITE_DALEK:
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition DALEK, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-#ifdef PBL_PLATFORM_APLITEx
-    sprite_mask = png_bwd_create(RESOURCE_ID_DALEK_MASK);
-#endif  // PBL_PLATFORM_APLITE
     sprite = png_bwd_create(RESOURCE_ID_DALEK);
     if (sprite.bitmap != NULL) {
       sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
@@ -445,7 +428,6 @@ void start_transition(int face_new, bool for_startup) {
     sprite_cx = 74;
 
     if (wipe_direction) {
-      flip_bitmap_x(sprite_mask.bitmap);
       flip_bitmap_x(sprite.bitmap);
       sprite_cx = sprite_width - sprite_cx;
     }
@@ -798,16 +780,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
     wipe_x = wipe_x - (sprite_width - sprite_cx);
     draw_face_transition(me, ctx, wipe_x);
 
-    if (sprite_mask.bitmap != NULL) {
-      // Then, draw the sprite on top of the wipe line.
-      GRect destination;
-      destination.size.w = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
-      destination.size.h = gbitmap_get_bounds(sprite_mask.bitmap).size.h;
-      destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
-      destination.origin.x = wipe_x - sprite_cx;
-      graphics_context_set_compositing_mode(ctx, GCompOpClear);
-      graphics_draw_bitmap_in_rect(ctx, sprite_mask.bitmap, destination);
-    }
+    // Then, draw the sprite on top of the wipe line.
 
     if (sprite.bitmap != NULL) {
       // Fixed sprite case.
@@ -816,11 +789,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       destination.size.h = gbitmap_get_bounds(sprite.bitmap).size.h;
       destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
       destination.origin.x = wipe_x - sprite_cx;
-#ifdef PBL_PLATFORM_APLITEx
-      graphics_context_set_compositing_mode(ctx, GCompOpOr);
-#else  //  PBL_PLATFORM_APLITE
       graphics_context_set_compositing_mode(ctx, GCompOpSet);
-#endif //  PBL_PLATFORM_APLITE
       graphics_draw_bitmap_in_rect(ctx, sprite.bitmap, destination);
 
     } else if (sprite_sel == SPRITE_TARDIS) {
@@ -844,11 +813,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
         destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
         destination.origin.x = wipe_x - sprite_cx;
         
-#ifdef PBL_PLATFORM_APLITEx
-        graphics_context_set_compositing_mode(ctx, GCompOpOr);
-#else  //  PBL_PLATFORM_APLITE
         graphics_context_set_compositing_mode(ctx, GCompOpSet);
-#endif //  PBL_PLATFORM_APLITE
         graphics_draw_bitmap_in_rect(ctx, tardis.bitmap, destination);
         
         bwd_destroy(&tardis);
@@ -1169,10 +1134,10 @@ void handle_init() {
   init_battery_gauge(root_layer);
   
 #ifdef PBL_ROUND
-  move_bluetooth_indicator(10, 42, false);
+  move_bluetooth_indicator(10, 42);
   move_battery_gauge(150, 46, false);
 #else  // PBL_ROUND
-  move_bluetooth_indicator(0, 0, false);
+  move_bluetooth_indicator(0, 0);
   move_battery_gauge(125, 0, false);
 #endif  // PBL_ROUND
 
