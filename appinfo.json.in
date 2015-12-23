@@ -75,21 +75,25 @@
 %(doctorsImages)s
       {
         "type": "bitmap",
+        "storageOptimization" : "memory",
         "name": "TARDIS_01",
         "file": "tardis_01.png"
       },
       {
         "type": "bitmap",
+        "storageOptimization" : "memory",
         "name": "TARDIS_02",
         "file": "tardis_02.png"
       },
       {
         "type": "bitmap",
+        "storageOptimization" : "memory",
         "name": "TARDIS_03",
         "file": "tardis_03.png"
       },
       {
         "type": "bitmap",
+        "storageOptimization" : "memory",
         "name": "TARDIS_04",
         "file": "tardis_04.png"
       },
