@@ -85,9 +85,9 @@ typedef struct {
 } VisibleFace;
 VisibleFace visible_face[NUM_SLICES];
 
-#ifndef PBL_PLATFORM_APLITE
-// A table of alternate color schemes for the Dalek bitmap (Basalt
-// build only, of course).
+#ifndef PBL_BW
+// A table of alternate color schemes for the Dalek bitmap (color
+// builds only, of course).
 typedef struct {
   uint8_t cb_argb8, c1_argb8, c2_argb8, c3_argb8;
 } ColorMap;
@@ -104,7 +104,7 @@ ColorMap dalek_colors[] = {
 };
 #define NUM_DALEK_COLORS (sizeof(dalek_colors) / sizeof(ColorMap))
 
-#endif // PBL_PLATFORM_APLITE
+#endif // PBL_BW
 
 // The transitioning face slice.
 int next_face_value;
@@ -169,7 +169,7 @@ VibePattern tap = {
 // Reverse the bits of a byte.
 // http://www.graphics.stanford.edu/~seander/bithacks.html#BitReverseTable
 uint8_t reverse_bits(uint8_t b) {
-  return ((b * 0x0802LU & 0x22110LU) | (b * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16; 
+  return ((b * 0x0802LU & 0x22110LU) | (b * 0x8020LU & 0x88440LU)) * 0x10101LU >> 16;
 }
 
 // Reverse the high nibble and low nibble of a byte.
@@ -184,18 +184,18 @@ void flip_bitmap_x(GBitmap *image) {
     // Trivial no-op.
     return;
   }
-  
+
   int height = gbitmap_get_bounds(image).size.h;
   int width = gbitmap_get_bounds(image).size.w;
   int pixels_per_byte = 8;
 
-#ifndef PBL_PLATFORM_APLITE
+#ifndef PBL_BW
   switch (gbitmap_get_format(image)) {
   case GBitmapFormat1Bit:
   case GBitmapFormat1BitPalette:
     pixels_per_byte = 8;
     break;
-    
+
   case GBitmapFormat2BitPalette:
     pixels_per_byte = 4;
     break;
@@ -209,8 +209,8 @@ void flip_bitmap_x(GBitmap *image) {
     pixels_per_byte = 1;
     break;
   }
-#endif  // PBL_PLATFORM_APLITE
-    
+#endif  // PBL_BW
+
   assert(width % pixels_per_byte == 0);  // This must be an even divisor, by our convention.
   int width_bytes = width / pixels_per_byte;
   int stride = gbitmap_get_bytes_per_row(image);
@@ -232,11 +232,11 @@ void flip_bitmap_x(GBitmap *image) {
       }
       break;
 
-#ifndef PBL_PLATFORM_APLITE
+#ifndef PBL_BW
     case 4:
       // TODO.
       break;
-      
+
     case 2:
       for (int x1 = (width_bytes - 1) / 2; x1 >= 0; --x1) {
         int x2 = width_bytes - 1 - x1;
@@ -245,7 +245,7 @@ void flip_bitmap_x(GBitmap *image) {
         row[x2] = b;
       }
       break;
-      
+
     case 1:
       for (int x1 = (width_bytes - 1) / 2; x1 >= 0; --x1) {
         int x2 = width_bytes - 1 - x1;
@@ -254,7 +254,7 @@ void flip_bitmap_x(GBitmap *image) {
         row[x2] = b;
       }
       break;
-#endif  // PBL_PLATFORM_APLITE
+#endif  // PBL_BW
     }
   }
 }
@@ -262,7 +262,7 @@ void flip_bitmap_x(GBitmap *image) {
 int check_buzzer() {
   // Rings the buzzer if it's almost time for the hour to change.
   // Returns the amount of time in ms to wait for the next buzzer.
-  time_t now = time(NULL);  
+  time_t now = time(NULL);
 
   // What hour is it right now, including the anticipate offset?
   int this_hour = (now + BUZZER_ANTICIPATE) / BUZZER_FREQ;
@@ -361,7 +361,7 @@ void start_transition(int face_new, bool for_startup) {
 
   // Update the face display.
   face_value = face_new;
- 
+
   face_transition = true;
   transition_frame = 0;
   num_transition_frames = NUM_TRANSITION_FRAMES_HOUR;
@@ -389,9 +389,9 @@ void start_transition(int face_new, bool for_startup) {
   switch (sprite_sel) {
   case SPRITE_TARDIS:
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition TARDIS, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_BW
     sprite_mask = png_bwd_create(RESOURCE_ID_TARDIS_MASK);
-#endif  // PBL_PLATFORM_APLITE
+#endif  // PBL_BW
     //sprite_width = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
     sprite_width = 112;
     sprite_cx = 72;
@@ -399,9 +399,9 @@ void start_transition(int face_new, bool for_startup) {
 
   case SPRITE_K9:
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition K9, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_BW
     sprite_mask = png_bwd_create(RESOURCE_ID_K9_MASK);
-#endif  // PBL_PLATFORM_APLITE
+#endif  // PBL_BW
     sprite = png_bwd_create(RESOURCE_ID_K9);
     if (sprite.bitmap != NULL) {
       sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
@@ -418,19 +418,19 @@ void start_transition(int face_new, bool for_startup) {
 
   case SPRITE_DALEK:
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition DALEK, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_BW
     sprite_mask = png_bwd_create(RESOURCE_ID_DALEK_MASK);
-#endif  // PBL_PLATFORM_APLITE
+#endif  // PBL_BW
     sprite = png_bwd_create(RESOURCE_ID_DALEK);
     if (sprite.bitmap != NULL) {
       sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
       //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "dalek loaded %p, format = %d", sprite.bitmap, gbitmap_get_format(sprite.bitmap));
-#ifndef PBL_PLATFORM_APLITE
+#ifndef PBL_BW
       // Pick a random color scheme for the Dalek.
       int color_sel = (rand() % NUM_DALEK_COLORS);
       ColorMap *cm = &dalek_colors[color_sel];
       bwd_remap_colors(&sprite, (GColor8){.argb=cm->cb_argb8}, (GColor8){.argb=cm->c1_argb8}, (GColor8){.argb=cm->c2_argb8}, (GColor8){.argb=cm->c3_argb8}, false);
-#endif  // PBL_PLATFORM_APLITE      
+#endif  // PBL_BW
     }
     sprite_cx = 74;
 
@@ -494,7 +494,7 @@ void draw_fullscreen_wiped(GContext *ctx, BitmapWithData image, int wipe_x) {
     // Trivial fill.
     wipe_x = SCREEN_WIDTH;
   }
-  
+
   GRect destination;
   destination.origin.x = 0;
   destination.origin.y = 0;
@@ -579,7 +579,7 @@ void draw_fullscreen_wiped(GContext *ctx, BitmapWithData image, int wipe_x) {
     }
 
     graphics_release_frame_buffer(ctx, fb);
-    
+
 #else  // PBL_ROUND
     // The rectangular model, pretty straightforward.
     graphics_draw_bitmap_in_rect(ctx, image.bitmap, destination);
@@ -595,16 +595,16 @@ void draw_fullscreen_complete(GContext *ctx, BitmapWithData image) {
 void draw_face_transition(Layer *me, GContext *ctx, int wipe_x) {
   if (wipe_direction) {
     // Wiping left-to-right.
-    
+
     // Draw the old face, and draw the visible portion of the new face
     // on top of it.
     draw_fullscreen_complete(ctx, visible_face[0].face_image);
     load_next_face_slice(0, face_value);
     draw_fullscreen_wiped(ctx, next_face_image, wipe_x);
-    
+
   } else {
     // Wiping right-to-left.
-    
+
     // Draw the new face, and then draw the visible portion of the old
     // face on top of it.
     load_next_face_slice(0, face_value);
@@ -641,7 +641,7 @@ draw_face_slice(Layer *me, GContext *ctx, int si) {
   destination.origin.x = slice_points[si];
   destination.origin.y = 0;
   destination.size.w = slice_points[si + 1] - slice_points[si];
-        
+
   if (visible_face[si].face_image.bitmap == NULL) {
     // The bitmap wasn't loaded successfully; just clear the
     // region.  This is a fallback.
@@ -665,16 +665,16 @@ void draw_face_transition(Layer *me, GContext *ctx, int wipe_x) {
   } else if (wipe_slice >= NUM_SLICES) {
     wipe_slice = NUM_SLICES - 1;
   }
-  
+
   GRect destination;
   destination.origin.x = slice_points[wipe_slice];
   destination.origin.y = 0;
   destination.size.w = slice_points[wipe_slice + 1] - slice_points[wipe_slice];
   destination.size.h = SCREEN_HEIGHT;
-  
+
   if (wipe_direction) {
     // Wiping left-to-right.
-    
+
     // Draw the old face within the wipe_slice, and draw the visible
     // portion of the new face on top of it.
     draw_face_slice(me, ctx, wipe_slice);
@@ -688,23 +688,23 @@ void draw_face_transition(Layer *me, GContext *ctx, int wipe_x) {
         graphics_draw_bitmap_in_rect(ctx, next_face_image.bitmap, destination);
       }
     }
-    
+
     // Draw all of the slices left of the wipe_slice in the new
     // face.
     for (int si = 0; si < wipe_slice; ++si) {
       load_face_slice(si, face_value);
       draw_face_slice(me, ctx, si);
     }
-    
+
     // Draw all of the slices right of the wipe_slice
     // in the old face.
     for (int si = wipe_slice + 1; si < NUM_SLICES; ++si) {
       draw_face_slice(me, ctx, si);
     }
-    
+
   } else {
     // Wiping right-to-left.
-    
+
     // Draw the new face within the wipe_slice, and then draw
     // the visible portion of the old face on top of it.
     load_next_face_slice(wipe_slice, face_value);
@@ -723,13 +723,13 @@ void draw_face_transition(Layer *me, GContext *ctx, int wipe_x) {
         graphics_draw_bitmap_in_rect(ctx, visible_face[wipe_slice].face_image.bitmap, destination);
       }
     }
-    
+
     // Draw all of the slices left of the wipe_slice in the old
     // face.
     for (int si = 0; si < wipe_slice; ++si) {
       draw_face_slice(me, ctx, si);
     }
-    
+
     // Draw all of the slices right of the wipe_slice
     // in the new face.
     for (int si = wipe_slice + 1; si < NUM_SLICES; ++si) {
@@ -806,11 +806,11 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
       destination.size.h = gbitmap_get_bounds(sprite.bitmap).size.h;
       destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
       destination.origin.x = wipe_x - sprite_cx;
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_BW
       graphics_context_set_compositing_mode(ctx, GCompOpOr);
-#else  //  PBL_PLATFORM_APLITE
+#else  //  PBL_BW
       graphics_context_set_compositing_mode(ctx, GCompOpSet);
-#endif //  PBL_PLATFORM_APLITE
+#endif //  PBL_BW
       graphics_draw_bitmap_in_rect(ctx, sprite.bitmap, destination);
 
     } else if (sprite_sel == SPRITE_TARDIS) {
@@ -833,20 +833,20 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
         destination.size.h = gbitmap_get_bounds(tardis.bitmap).size.h;
         destination.origin.y = (SCREEN_HEIGHT - destination.size.h) / 2;
         destination.origin.x = wipe_x - sprite_cx;
-        
-#ifdef PBL_PLATFORM_APLITE
+
+#ifdef PBL_BW
         graphics_context_set_compositing_mode(ctx, GCompOpOr);
-#else  //  PBL_PLATFORM_APLITE
+#else  //  PBL_BW
         graphics_context_set_compositing_mode(ctx, GCompOpSet);
-#endif //  PBL_PLATFORM_APLITE
+#endif //  PBL_BW
         graphics_draw_bitmap_in_rect(ctx, tardis.bitmap, destination);
-        
+
         bwd_destroy(&tardis);
       }
     }
   }
 }
-  
+
 void mm_layer_update_callback(Layer *me, GContext* ctx) {
   //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "mm_layer");
   GFont font;
@@ -854,7 +854,7 @@ void mm_layer_update_callback(Layer *me, GContext* ctx) {
   char buffer[buffer_size];
 
   // This layer includes only the minutes digits (preceded by a colon).
-  
+
   graphics_context_set_compositing_mode(ctx, GCompOpOr);
 
   // Draw the background card for the minutes digits.
@@ -864,7 +864,7 @@ void mm_layer_update_callback(Layer *me, GContext* ctx) {
   if (mins_background.bitmap != NULL) {
     graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, mins_background_box);
   }
-  
+
   font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
 
 #ifdef PBL_COLOR
@@ -886,7 +886,7 @@ void mm_layer_update_callback(Layer *me, GContext* ctx) {
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                      NULL);
 }
-  
+
 void hhmm_layer_update_callback(Layer *me, GContext* ctx) {
   //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "hhmm_layer");
   GFont font;
@@ -895,9 +895,9 @@ void hhmm_layer_update_callback(Layer *me, GContext* ctx) {
 
   // This layer includes both the hours and the minutes digits (with a
   // colon).
-  
+
   graphics_context_set_compositing_mode(ctx, GCompOpOr);
-  
+
   // Draw the background card for the hours digits.
   if (hours_background.bitmap == NULL) {
     hours_background = png_bwd_create(RESOURCE_ID_HOURS_BACKGROUND);
@@ -905,7 +905,7 @@ void hhmm_layer_update_callback(Layer *me, GContext* ctx) {
   if (hours_background.bitmap != NULL) {
     graphics_draw_bitmap_in_rect(ctx, hours_background.bitmap, hours_background_box);
   }
- 
+
   font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
 
 #ifdef PBL_COLOR
@@ -933,7 +933,7 @@ void hhmm_layer_update_callback(Layer *me, GContext* ctx) {
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                      NULL);
 }
-  
+
 void date_layer_update_callback(Layer *me, GContext* ctx) {
   //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "date_layer: %d", config.show_date);
   if (config.show_date) {
@@ -949,9 +949,9 @@ void date_layer_update_callback(Layer *me, GContext* ctx) {
     if (date_background.bitmap != NULL) {
       graphics_draw_bitmap_in_rect(ctx, date_background.bitmap, date_background_box);
     }
-   
+
     font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-    
+
     graphics_context_set_text_color(ctx, GColorBlack);
     const LangDef *lang = &lang_table[config.display_lang % num_langs];
     const char *weekday_name = lang->weekday_names[day_value];
@@ -1028,7 +1028,7 @@ void update_time(struct tm *tick_time, bool for_startup) {
 
       if (blink_timer != NULL) {
         app_timer_cancel(blink_timer);
-	blink_timer = NULL;
+        blink_timer = NULL;
       }
       blink_timer = app_timer_register(500, &handle_blink, 0);
     }
@@ -1081,7 +1081,7 @@ void apply_config() {
     layer_set_hidden(hhmm_layer, true);
     layer_set_hidden(mm_layer, false);
   }
-  
+
   refresh_battery_gauge();
   refresh_bluetooth_indicator();
 
@@ -1132,7 +1132,7 @@ void handle_init() {
   for (int si = 0; si < NUM_SLICES; ++si) {
     visible_face[si].face_value = -1;
   }
-    
+
   window = window_create();
   window_set_background_color(window, GColorWhite);
   struct Layer *root_layer = window_get_root_layer(window);
@@ -1157,7 +1157,7 @@ void handle_init() {
 
   init_bluetooth_indicator(root_layer);
   init_battery_gauge(root_layer);
-  
+
 #ifdef PBL_ROUND
   move_bluetooth_indicator(10, 42, false);
   move_battery_gauge(150, 46, false);

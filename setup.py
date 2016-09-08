@@ -21,7 +21,7 @@ Options:
         Specifies the number of vertical slices of each face.
 
     -p platform[,platform...]
-        Specifies the build platform (aplite, basalt, and/or chalk).
+        Specifies the build platform (aplite, basalt, chalk, diorite).
 
     -x
         Perform no RLE compression of images.
@@ -228,6 +228,15 @@ circularBufferSize = [
 
 doctorsImage = """
         {
+          "targetPlatforms": [ "aplite", "diorite" ],
+          "type": "%(ptype)s",
+          "memoryFormat" : "1Bit",
+          "spaceOptimization" : "memory",
+          "name": "%(resource_base)s",
+          "file": "%(filename)s"
+        },
+        {
+          "targetPlatforms": [ "basalt", "chalk" ],
           "type": "%(ptype)s",
           "name": "%(resource_base)s",
           "file": "%(filename)s"
@@ -293,7 +302,7 @@ def makeDoctors():
 
         mods = {}
         for mod in [ '~bw', '~color~rect', '~color~round' ]:
-            if mod == '~bw' and 'aplite' not in targetPlatforms:
+            if mod == '~bw' and 'aplite' not in targetPlatforms and 'diorite' not in targetPlatforms:
                 continue
             if mod == '~color~rect' and 'basalt' not in targetPlatforms:
                 continue
@@ -405,6 +414,6 @@ for opt, arg in opts:
         usage(0)
 
 if not targetPlatforms:
-    targetPlatforms = [ "aplite", "basalt", "chalk" ]
+    targetPlatforms = [ "aplite", "basalt", "chalk", "diorite" ]
 
 configWatch()

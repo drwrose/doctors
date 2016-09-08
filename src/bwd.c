@@ -23,6 +23,7 @@ void bwd_destroy(BitmapWithData *bwd) {
 // BitmapWithData interface to be consistent with rle_bwd_create().
 // The returned bitmap must be released with bwd_destroy().
 BitmapWithData png_bwd_create(int resource_id) {
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "png_bwd_create(%d)", resource_id);
   GBitmap *image = gbitmap_create_with_resource(resource_id);
   return bwd_create(image);
 }
@@ -54,7 +55,7 @@ typedef struct {
 static void rbuffer_init(int resource_id, RBuffer *rb, size_t offset) {
   //  rb->_buffer = (uint8_t *)malloc(RBUFFER_SIZE);
   //  assert(rb->_buffer != NULL);
-  
+
   rb->_rh = resource_get_handle(resource_id);
   rb->_total_size = resource_size(rb->_rh);
   rb->_i = 0;
@@ -166,7 +167,7 @@ static int rl2unpacker_getc(Rl2Unpacker *rl2) {
       bv = (rl2->b & (bmask << (rl2->bi - rl2->n)));
     }
   }
-    
+
   // Infer from that the number of chunks, and hence the number of
   // bits, that make up the value we will extract.
   int num_chunks = (zero_count + 1);
@@ -226,7 +227,7 @@ typedef void Packer(int value, int count, int *b, uint8_t **dp, uint8_t *dp_stop
 // Packs a series of identical 1-bit values into (*dp) beginning at bit (*b).
 void pack_1bit(int value, int count, int *b, uint8_t **dp, uint8_t *dp_stop) {
   assert(*dp < dp_stop);
-  
+
   if (value) {
     // Generate count 1-bits.
     int b1 = (*b) + count;
@@ -262,9 +263,9 @@ void pack_1bit(int value, int count, int *b, uint8_t **dp, uint8_t *dp_stop) {
   }
 }
 
-#ifndef PBL_PLATFORM_APLITE
+#ifndef PBL_BW
 // The following functions are needed for unpacking advanced color
-// modes not supported on Aplite.
+// modes supported only on color platforms like Basalt and Chalk.
 
 // Packs a series of identical 2-bit values into (*dp) beginning at bit (*b).
 void pack_2bit(int value, int count, int *b, uint8_t **dp, uint8_t *dp_stop) {
@@ -305,7 +306,7 @@ void pack_2bit(int value, int count, int *b, uint8_t **dp, uint8_t *dp_stop) {
     (*b) += count * 2;
     (*dp) += (*b) / 8;
     (*b) = (*b) % 8;
-  }    
+  }
 }
 
 
@@ -342,7 +343,7 @@ void pack_4bit(int value, int count, int *b, uint8_t **dp, uint8_t *dp_stop) {
     (*b) += count * 4;
     (*dp) += (*b) / 8;
     (*b) = (*b) % 8;
-  }    
+  }
 }
 
 // Packs a series of identical 8-bit values into (*dp).
@@ -371,7 +372,7 @@ rle_bwd_create(int resource_id) {
   //         (uint8_t)  format (see below)
   //         (uint16_t) offset to start of values, or 0 if format == 0
   //         (uint16_t) offset to start of palette, or 0 if format <= 1
-  
+
   RBuffer rb;
   rbuffer_init(resource_id, &rb, 0);
   int width = rbuffer_getc(&rb);
@@ -388,7 +389,7 @@ rle_bwd_create(int resource_id) {
   unsigned int po = (po_hi << 8) | po_lo;
 
   assert(vo != 0 && po >= vo && po <= rb._total_size);
-  
+
   int do_unscreen = (n & 0x80);
   n = n & 0x7f;
 
@@ -402,13 +403,13 @@ rle_bwd_create(int resource_id) {
   case GBitmapFormat1Bit:
     packer_func = pack_1bit;
     break;
-    
+
   case GBitmapFormat2BitPalette:
     vn = 2;
     palette_count = 4;
     packer_func = pack_2bit;
     break;
-    
+
   case GBitmapFormat4BitPalette:
     vn = 4;
     palette_count = 16;
@@ -426,7 +427,7 @@ rle_bwd_create(int resource_id) {
   if (palette_count != 0) {
     palette = (GColor *)malloc(palette_count * sizeof(GColor));
   }
-  
+
   GBitmap *image = gbitmap_create_blank_with_palette(GSize(width, height), format, palette, true);
   if (image == NULL) {
     free(palette);
@@ -456,7 +457,7 @@ rle_bwd_create(int resource_id) {
   uint8_t *dp = bitmap_data;
   uint8_t *dp_stop = dp + data_size;
   int b = 0;
-  
+
   if (packer_func == pack_1bit) {
     // Unpack a 1-bit file.
 
@@ -490,11 +491,11 @@ rle_bwd_create(int resource_id) {
   assert(dp == dp_stop && b == 0);
   rbuffer_deinit(&rb);
   rbuffer_deinit(&rb_vo);
-  
+
   if (do_unscreen) {
     unscreen_bitmap(image);
   }
-  
+
   if (palette_count != 0) {
     // Now we need to apply the palette.
     ResHandle rh = resource_get_handle(resource_id);
@@ -506,13 +507,13 @@ rle_bwd_create(int resource_id) {
     size_t bytes_read = resource_load_byte_range(rh, po, (uint8_t *)palette, palette_size);
     assert(bytes_read == palette_size);
   }
-  
+
   return bwd_create(image);
 }
 
-#else  // PBL_PLATFORM_APLITE
+#else  // PBL_BW
 
-// Here's the simpler Aplite implementation, which only supports GColorFormat1Bit.
+// Here's the simpler mono implementation, which only supports GColorFormat1Bit.
 
 // Initialize a bitmap from an rle-encoded resource.  The returned
 // bitmap must be released with bwd_destroy().  See make_rle.py for
@@ -528,7 +529,7 @@ rle_bwd_create(int resource_id) {
   //         (uint8_t)  format (see below)
   //         (uint16_t) offset to start of values, or 0 if format == 0
   //         (uint16_t) offset to start of palette, or 0 if format <= 1
-  
+
   RBuffer rb;
   rbuffer_init(resource_id, &rb, 0);
   int width = rbuffer_getc(&rb);
@@ -545,12 +546,12 @@ rle_bwd_create(int resource_id) {
   /*uint8_t vo_hi = */rbuffer_getc(&rb);
   /*uint8_t po_lo = */rbuffer_getc(&rb);
   /*uint8_t po_hi = */rbuffer_getc(&rb);
-  
+
   int do_unscreen = (n & 0x80);
   n = n & 0x7f;
 
   app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "reading bitmap %d x %d, n = %d, format = %d", width, height, n, format);
-  
+
   GBitmap *image = __gbitmap_create_blank(GSize(width, height));
   if (image == NULL) {
     return bwd_create(NULL);
@@ -567,7 +568,7 @@ rle_bwd_create(int resource_id) {
   uint8_t *dp = bitmap_data;
   uint8_t *dp_stop = dp + data_size;
   int b = 0;
-  
+
   // Unpack a 1-bit file.
 
   // The initial value is 0.
@@ -587,22 +588,22 @@ rle_bwd_create(int resource_id) {
   //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "wrote %d bytes", dp - bitmap_data);
   assert(dp == dp_stop && b == 0);
   rbuffer_deinit(&rb);
-  
+
   if (do_unscreen) {
     unscreen_bitmap(image);
   }
-  
+
   return bwd_create(image);
 }
 
-#endif // PBL_PLATFORM_APLITE
+#endif // PBL_BW
 
 #endif  // SUPPORT_RLE
 
 // Replace each of the R, G, B channels with a different color, and
 // blend the result together.  Only supported for palette bitmaps.
 void bwd_remap_colors(BitmapWithData *bwd, GColor cb, GColor c1, GColor c2, GColor c3, bool invert_colors) {
-#ifndef PBL_PLATFORM_APLITE
+#ifndef PBL_BW
   if (bwd->bitmap == NULL) {
     return;
   }
@@ -639,7 +640,7 @@ void bwd_remap_colors(BitmapWithData *bwd, GColor cb, GColor c1, GColor c2, GCol
     int r = cb.r;
     int g = cb.g;
     int b = cb.b;
-    
+
     GColor p = palette[pi];
 
     r = (3 * r + p.r * (c1.r - r)) / 3;  // Blend from r to c1.r
@@ -659,11 +660,11 @@ void bwd_remap_colors(BitmapWithData *bwd, GColor cb, GColor c1, GColor c2, GCol
     palette[pi].b = (b < 0x3) ? b : 0x3;
 
     //    GColor q = palette[pi]; app_log(APP_LOG_LEVEL_WARNING, __FILE__, __LINE__, "cb = %02x, c1 = %02x, c2 = %02x, c3 = %02x.  %d: %02x/%02x/%02x/%02x becomes %02x/%02x/%02x/%02x (%d, %d, %d)", cb.argb, c1.argb, c2.argb, c3.argb, pi, p.argb & 0xc0, p.argb & 0x30, p.argb & 0x0c, p.argb & 0x03, q.argb & 0xc0, q.argb & 0x30, q.argb & 0x0c, q.argb & 0x03, r, g, b);
-    
+
     if (invert_colors) {
       palette[pi].argb ^= 0x3f;
     }
   }
-    
-#endif // PBL_PLATFORM_APLITE
+
+#endif // PBL_BW
 }

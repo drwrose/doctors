@@ -9,17 +9,19 @@ BitmapWithData bluetooth_mask;
 Layer *bluetooth_layer;
 bool bluetooth_state = false;
 
-#ifdef PBL_PLATFORM_APLITE
+//#define DYNAMIC_INVERT
 
-// On Aplite, these parameters are passed in.
+#ifdef DYNAMIC_INVERT
+
+// On monochrome watches, these parameters are passed in.
 bool bluetooth_invert = false;
 
-#else  // PBL_PLATFORM_APLITE
+#else  // DYNAMIC_INVERT
 
-// On Basalt, the icon is never inverted.
+// On color watches, the icon is never inverted.
 #define bluetooth_invert false
 
-#endif  // PBL_PLATFORM_APLITE
+#endif  // DYNAMIC_INVERT
 
 
 void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
@@ -33,7 +35,7 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
 
   GCompOp fg_mode;
 
-#ifdef PBL_PLATFORM_APLITE
+#ifdef PBL_BW
   GCompOp mask_mode;
   if (bluetooth_invert) {
     fg_mode = GCompOpSet;
@@ -42,11 +44,11 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
     fg_mode = GCompOpAnd;
     mask_mode = GCompOpSet;
   }
-#else  // PBL_PLATFORM_APLITE
-  // In Basalt, we always use GCompOpSet because the icon includes its
-  // own alpha channel.
+#else  // PBL_BW
+  // On color watches, we always use GCompOpSet because the icon
+  // includes its own alpha channel.
   fg_mode = GCompOpSet;
-#endif  // PBL_PLATFORM_APLITE
+#endif  // PBL_BW
 
   bool new_state = bluetooth_connection_service_peek();
   if (new_state != bluetooth_state) {
@@ -61,15 +63,15 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
     if (config.bluetooth_indicator != IM_when_needed) {
       // We don't draw the "connected" bitmap if bluetooth_indicator
       // is set to IM_when_needed; only on IM_always.
-#ifdef PBL_PLATFORM_APLITE      
+#ifdef PBL_BW
       if (bluetooth_mask.bitmap == NULL) {
         bluetooth_mask = png_bwd_create(RESOURCE_ID_BLUETOOTH_MASK);
       }
       graphics_context_set_compositing_mode(ctx, mask_mode);
       graphics_draw_bitmap_in_rect(ctx, bluetooth_mask.bitmap, box);
-#endif  // PBL_PLATFORM_APLITE      
+#endif  // PBL_BW
       if (bluetooth_connected.bitmap == NULL) {
-	bluetooth_connected = png_bwd_create(RESOURCE_ID_BLUETOOTH_CONNECTED);
+        bluetooth_connected = png_bwd_create(RESOURCE_ID_BLUETOOTH_CONNECTED);
       }
       graphics_context_set_compositing_mode(ctx, fg_mode);
       graphics_draw_bitmap_in_rect(ctx, bluetooth_connected.bitmap, box);
@@ -77,13 +79,13 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
   } else {
     // We always draw the disconnected bitmap (except in the IM_off
     // case, of course).
-#ifdef PBL_PLATFORM_APLITE      
+#ifdef PBL_BW
     if (bluetooth_mask.bitmap == NULL) {
       bluetooth_mask = png_bwd_create(RESOURCE_ID_BLUETOOTH_MASK);
     }
     graphics_context_set_compositing_mode(ctx, mask_mode);
     graphics_draw_bitmap_in_rect(ctx, bluetooth_mask.bitmap, box);
-#endif  // PBL_PLATFORM_APLITE      
+#endif  // PBL_BW
     if (bluetooth_disconnected.bitmap == NULL) {
       bluetooth_disconnected = png_bwd_create(RESOURCE_ID_BLUETOOTH_DISCONNECTED);
     }
@@ -98,9 +100,9 @@ void handle_bluetooth(bool connected) {
 }
 
 void init_bluetooth_indicator(Layer *window_layer) {
-#ifdef PBL_PLATFORM_APLITE
+#ifdef DYNAMIC_INVERT
   bluetooth_invert = false;
-#endif  // PBL_PLATFORM_APLITE
+#endif  // DYNAMIC_INVERT
   bluetooth_layer = layer_create(GRect(0, 0, 18, 18));
   layer_set_update_proc(bluetooth_layer, &bluetooth_layer_update_callback);
   layer_add_child(window_layer, bluetooth_layer);
@@ -108,9 +110,9 @@ void init_bluetooth_indicator(Layer *window_layer) {
 }
 
 void move_bluetooth_indicator(int x, int y, bool invert) {
-#ifdef PBL_PLATFORM_APLITE
+#ifdef DYNAMIC_INVERT
   bluetooth_invert = invert;
-#endif  // PBL_PLATFORM_APLITE
+#endif  // DYNAMIC_INVERT
   layer_set_frame((Layer *)bluetooth_layer, GRect(x, y, 18, 18));
 }
 
