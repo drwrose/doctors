@@ -51,26 +51,26 @@
           "type": "bitmap",
           "memoryFormat" : "1Bit",
           "name": "BLUETOOTH_DISCONNECTED",
-          "file": "bluetooth_disconnected.png"
+          "file": "bluetooth_disconnected_bw.png"
         },
         {
           "targetPlatforms": [ "basalt", "chalk" ],
           "type": "bitmap",
           "name": "BLUETOOTH_DISCONNECTED",
-          "file": "bluetooth_disconnected.png"
+          "file": "bluetooth_disconnected_color.png"
         },
         {
           "targetPlatforms": [ "aplite", "diorite" ],
           "type": "bitmap",
           "memoryFormat" : "1Bit",
           "name": "BLUETOOTH_CONNECTED",
-          "file": "bluetooth_connected.png"
+          "file": "bluetooth_connected_bw.png"
         },
         {
           "targetPlatforms": [ "basalt", "chalk" ],
           "type": "bitmap",
           "name": "BLUETOOTH_CONNECTED",
-          "file": "bluetooth_connected.png"
+          "file": "bluetooth_connected_color.png"
         },
         {
           "targetPlatforms": [ "aplite", "diorite" ],
@@ -148,13 +148,13 @@
           "type": "bitmap",
           "memoryFormat" : "1Bit",
           "name": "K9",
-          "file": "k9.png"
+          "file": "k9_bw.png"
         },
         {
           "targetPlatforms": [ "basalt", "chalk" ],
           "type": "bitmap",
           "name": "K9",
-          "file": "k9.png"
+          "file": "k9_color.png"
         },
         {
           "targetPlatforms": [ "aplite", "diorite" ],
@@ -168,13 +168,13 @@
           "type": "bitmap",
           "memoryFormat" : "1Bit",
           "name": "DALEK",
-          "file": "dalek.png"
+          "file": "dalek_bw.png"
         },
         {
           "targetPlatforms": [ "basalt", "chalk" ],
           "type": "bitmap",
           "name": "DALEK",
-          "file": "dalek.png"
+          "file": "dalek_color.png"
         },
         {
           "targetPlatforms": [ "aplite", "diorite" ],
