@@ -10,7 +10,7 @@ from resources.make_rle import make_rle
 help = """
 setup.py
 
-This script pre-populates the appinfo.json file and resources
+This script pre-populates the package.json file and resources
 directory for correctly building the 12 Doctors watchface.
 
 setup.py [opts]
@@ -29,7 +29,7 @@ Options:
     -d
         Compile for debugging.  Specifically this enables "fast time",
         so the faces change quickly.  It also enables logging.
-        
+
 """
 
 def usage(code, msg = ''):
@@ -227,12 +227,11 @@ circularBufferSize = [
     ]
 
 doctorsImage = """
-      {
-        "name": "%(resource_base)s",
-        "file": "%(filename)s",
-        "type": "%(ptype)s"
-      },
-"""
+        {
+          "type": "%(ptype)s",
+          "name": "%(resource_base)s",
+          "file": "%(filename)s"
+        },"""
 
 def enquoteStrings(strings):
     """ Accepts a list of strings, returns a list of strings with
@@ -283,7 +282,7 @@ def makeDoctors():
     slicesDir = '%s/slices' % (resourcesDir)
     if not os.path.isdir(slicesDir):
         os.mkdir(slicesDir)
-        
+
     doctorsImages = ''
     doctorsIds = ''
     for basename in basenames:
@@ -304,7 +303,7 @@ def makeDoctors():
             if os.path.exists(modFilename):
                 modImage = PIL.Image.open(modFilename)
                 mods[mod] = modImage
-        
+
         for slice in range(numSlices):
             # Make a vertical slice of the image.
             resource_base = '%s_%s' % (basename.upper(), slice + 1)
@@ -315,7 +314,7 @@ def makeDoctors():
                     screenWidth, screenHeight = 144, 172
                     if mod == '~color~round':
                         screenWidth, screenHeight = 180, 180
-                        
+
                     xf = slicePoints[screenWidth][slice]
                     xt = slicePoints[screenWidth][slice + 1]
                     box = (xf, 0, xt, screenHeight)
@@ -339,9 +338,9 @@ def makeDoctors():
                     image.save('%s/%s' % (resourcesDir, filename))
 
                 filename = 'slices/%s.png' % (basename)
-                
+
             rleFilename, ptype = make_rle(filename, useRle = supportRle, modes = mods.keys())
-            
+
             doctorsImages += doctorsImage % {
             'resource_base' : resource_base,
             'filename' : rleFilename,
@@ -373,8 +372,8 @@ def configWatch():
         'slicePointsRect' : ', '.join(map(str, slicePoints[144])),
         }
 
-    resourceIn = open('%s/appinfo.json.in' % (rootDir), 'r').read()
-    resource = open('%s/appinfo.json' % (rootDir), 'w')
+    resourceIn = open('%s/package.json.in' % (rootDir), 'r').read()
+    resource = open('%s/package.json' % (rootDir), 'w')
 
     print >> resource, resourceIn % {
         'targetPlatforms' : ', '.join(enquoteStrings(targetPlatforms)),
@@ -407,5 +406,5 @@ for opt, arg in opts:
 
 if not targetPlatforms:
     targetPlatforms = [ "aplite", "basalt", "chalk" ]
-    
+
 configWatch()

@@ -7,10 +7,12 @@ resources/slices/*.png
 resources/generated_config.h
 resources/generated_config.c
 resources/generated_table.c
-appinfo.json
+package.json
 
 *.pyc
 *~
 #*
 .DS_Store
 .lock-waf_*_build
+
+node_modules/

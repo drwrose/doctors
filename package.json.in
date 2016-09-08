@@ -1,0 +1,151 @@
+{
+  "version": "4.1.0",
+  "author": "drwrose",
+  "private": true,
+  "dependencies": {},
+  "keywords": [
+    "pebble-app"
+  ],
+  "pebble": {
+    "sdkVersion": "3",
+    "resources": {
+      "media": [
+        {
+          "menuIcon": true,
+          "type": "png",
+          "name": "APP_ICON",
+          "file": "app_icon.png"
+        },
+        {
+          "type": "pbi",
+          "name": "BATTERY_GAUGE_EMPTY",
+          "file": "battery_gauge_empty.png"
+        },
+        {
+          "type": "pbi",
+          "name": "BATTERY_GAUGE_CHARGED",
+          "file": "battery_gauge_charged.png"
+        },
+        {
+          "type": "pbi",
+          "name": "BATTERY_GAUGE_MASK",
+          "file": "battery_gauge_mask.png"
+        },
+        {
+          "type": "pbi",
+          "name": "CHARGING",
+          "file": "charging.png"
+        },
+        {
+          "type": "pbi",
+          "name": "CHARGING_MASK",
+          "file": "charging_mask.png"
+        },
+        {
+          "type": "png",
+          "name": "BLUETOOTH_DISCONNECTED",
+          "file": "bluetooth_disconnected.png"
+        },
+        {
+          "type": "png",
+          "name": "BLUETOOTH_CONNECTED",
+          "file": "bluetooth_connected.png"
+        },
+        {
+          "targetPlatforms": [
+            "aplite"
+          ],
+          "type": "png",
+          "name": "BLUETOOTH_MASK",
+          "file": "bluetooth_mask.png"
+        },
+%(doctorsImages)s
+        {
+          "type": "png",
+          "name": "TARDIS_01",
+          "file": "tardis_01.png"
+        },
+        {
+          "type": "png",
+          "name": "TARDIS_02",
+          "file": "tardis_02.png"
+        },
+        {
+          "type": "png",
+          "name": "TARDIS_03",
+          "file": "tardis_03.png"
+        },
+        {
+          "type": "png",
+          "name": "TARDIS_04",
+          "file": "tardis_04.png"
+        },
+        {
+          "type": "pbi",
+          "name": "TARDIS_MASK",
+          "file": "tardis_masks.png"
+        },
+        {
+          "type": "png",
+          "name": "K9",
+          "file": "k9.png"
+        },
+        {
+          "type": "pbi",
+          "name": "K9_MASK",
+          "file": "k9_mask.png"
+        },
+        {
+          "type": "png",
+          "name": "DALEK",
+          "file": "dalek.png"
+        },
+        {
+          "type": "pbi",
+          "name": "DALEK_MASK",
+          "file": "dalek_mask.png"
+        },
+        {
+          "type": "pbi",
+          "name": "MINS_BACKGROUND",
+          "file": "mins_background.png"
+        },
+        {
+          "type": "pbi",
+          "name": "HOURS_BACKGROUND",
+          "file": "hours_background.png"
+        },
+        {
+          "type": "pbi",
+          "name": "DATE_BACKGROUND",
+          "file": "date_background.png"
+        }
+      ]
+    },
+    "projectType": "native",
+    "uuid": "221ea62f-e2d0-4725-97c3-7fb3a2af4c0c",
+    "messageKeys": {
+      "battery_gauge": 0,
+      "display_lang": 6,
+      "bluetooth_buzzer": 7,
+      "hour_buzzer": 3,
+      "show_hour": 8,
+      "show_date": 5,
+      "hurt": 4,
+      "second_hand": 2,
+      "bluetooth_indicator": 1
+    },
+    "enableMultiJS": false,
+    "displayName": "12 Doctors",
+    "watchapp": {
+      "onlyShownOnCommunication": false,
+      "hiddenApp": false,
+      "watchface": true
+    },
+    "targetPlatforms": [ %(targetPlatforms)s ],
+    "capabilities": [
+      "configurable"
+    ]
+  },
+  "name": "12 Doctors"
+}
