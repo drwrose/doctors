@@ -69,6 +69,7 @@ BitmapWithData date_background;
 
 // The horizontal center point of the sprite.
 int sprite_cx = 0;
+bool any_obstructed_area = false;
 
 
 Layer *face_layer;   // The "face", in both senses (and also the hour indicator).
@@ -748,6 +749,19 @@ void draw_face_complete(Layer *me, GContext *ctx) {
 
 #endif  // NUM_SLICES
 
+void root_layer_update_callback(Layer *me, GContext *ctx) {
+  //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "root_layer");
+
+  // Only bother filling in the root layer if part of the window is
+  // obstructed.  We do this to ensure the entire window is cleared in
+  // case we're not drawing all of it.
+  if (any_obstructed_area) {
+    GRect destination = layer_get_frame(me);
+    graphics_context_set_fill_color(ctx, GColorBlack);
+    graphics_fill_rect(ctx, destination, 0, GCornerNone);
+  }
+}
+
 void face_layer_update_callback(Layer *me, GContext *ctx) {
   //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "face_layer");
   int ti = 0;
@@ -1090,6 +1104,47 @@ void apply_config() {
   bwd_destroy(&date_background);
 }
 
+#if PBL_API_EXISTS(layer_get_unobstructed_bounds)
+// The unobstructed area of the watchface is changing (e.g. due to a
+// timeline quick view message).  Adjust layers accordingly.
+void adjust_unobstructed_area() {
+  struct Layer *root_layer = window_get_root_layer(window);
+  GRect bounds = layer_get_unobstructed_bounds(root_layer);
+  GRect orig_bounds = layer_get_bounds(root_layer);
+  any_obstructed_area = (memcmp(&bounds, &orig_bounds, sizeof(bounds)) != 0);
+  int bottom_shift = SCREEN_HEIGHT - bounds.size.h;
+
+  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "unobstructed_area: %d %d %d %d, bottom_shift = %d, any_obstructed_area = %d", bounds.origin.x, bounds.origin.y, bounds.size.w, bounds.size.h, bottom_shift, any_obstructed_area);
+
+  // Shift everything on the bottom of the screen up by the
+  // appropriate amount.
+  GRect mm_layer_shifted = mm_layer_box;
+  GRect hhmm_layer_shifted = hhmm_layer_box;
+  GRect date_layer_shifted = date_layer_box;
+
+  mm_layer_shifted.origin.y -= bottom_shift;
+  hhmm_layer_shifted.origin.y -= bottom_shift;
+  date_layer_shifted.origin.y -= bottom_shift;
+
+  layer_set_frame(mm_layer, mm_layer_shifted);
+  layer_set_frame(hhmm_layer, hhmm_layer_shifted);
+  layer_set_frame(date_layer, date_layer_shifted);
+
+  // Shift the face layer to center the face within the new region.
+  int cx = bounds.origin.x + bounds.size.w / 2;
+  int cy = bounds.origin.y + bounds.size.h / 2;
+
+  GRect face_layer_shifted = { { cx - SCREEN_WIDTH / 2, cy - SCREEN_HEIGHT / 2 },
+                               { SCREEN_WIDTH, SCREEN_HEIGHT } };
+  layer_set_frame(face_layer, face_layer_shifted);
+}
+
+void unobstructed_area_change_handler(AnimationProgress progress, void *context) {
+  adjust_unobstructed_area();
+}
+#endif  // PBL_API_EXISTS(layer_get_unobstructed_bounds)
+
+
 void handle_init() {
   load_config();
 
@@ -1136,6 +1191,7 @@ void handle_init() {
   window = window_create();
   window_set_background_color(window, GColorWhite);
   struct Layer *root_layer = window_get_root_layer(window);
+  layer_set_update_proc(root_layer, &root_layer_update_callback);
 
   window_stack_push(window, true);
 
@@ -1165,6 +1221,14 @@ void handle_init() {
   move_bluetooth_indicator(0, 0, false);
   move_battery_gauge(125, 0, false);
 #endif  // PBL_ROUND
+
+#if PBL_API_EXISTS(layer_get_unobstructed_bounds)
+  struct UnobstructedAreaHandlers unobstructed_area_handlers;
+  memset(&unobstructed_area_handlers, 0, sizeof(unobstructed_area_handlers));
+  unobstructed_area_handlers.change = unobstructed_area_change_handler;
+  unobstructed_area_service_subscribe(unobstructed_area_handlers, NULL);
+  adjust_unobstructed_area();
+#endif  // PBL_API_EXISTS(layer_get_unobstructed_bounds)
 
   time_t now = time(NULL);
   struct tm *startup_time = localtime(&now);
