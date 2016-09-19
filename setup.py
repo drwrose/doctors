@@ -24,7 +24,7 @@ Options:
         Specifies the build platform (aplite, basalt, chalk, diorite).
 
     -x
-        Perform no RLE compression of images.
+        Perform RLE compression of images.
 
     -d
         Compile for debugging.  Specifically this enables "fast time",
@@ -226,21 +226,65 @@ circularBufferSize = [
     (76, 103),
     ]
 
-doctorsImage = """
-        {
-          "targetPlatforms": [ "aplite", "diorite" ],
-          "type": "%(ptype)s",
-          "memoryFormat" : "1Bit",
-          "spaceOptimization" : "memory",
-          "name": "%(resource_base)s",
-          "file": "%(filename)s"
-        },
-        {
-          "targetPlatforms": [ "basalt", "chalk" ],
-          "type": "%(ptype)s",
-          "name": "%(resource_base)s",
-          "file": "%(filename)s"
-        },"""
+screenSizes = {
+    'rect' : (144, 168),
+    'round' : (180, 180),
+    'emery' : (200, 228),
+    }
+
+def getPlatformShape(platform):
+    if platform in ['aplite', 'basalt', 'diorite']:
+        shape = 'rect'
+    elif platform in ['chalk']:
+        shape = 'round'
+    elif platform in ['emery']:
+        shape = 'emery'
+    else:
+        raise StandardError
+    return shape
+
+def getPlatformColor(platform):
+    if platform in ['aplite', 'diorite']:
+        color = 'bw'
+    elif platform in ['chalk', 'basalt', 'emery']:
+        color = 'color'
+    else:
+        raise StandardError
+    return color
+
+def getVariantsForPlatforms(platforms):
+    variants = set()
+    if 'aplite' in platforms or 'diorite' in platforms:
+        variants.add('~bw')
+    if 'basalt' in platforms:
+        variants.add('~color')
+        variants.add('~color~rect')
+    if 'chalk' in platforms:
+        variants.add('~color')
+        variants.add('~color~round')
+    if 'emery' in platforms:
+        variants.add('~emery')
+    return list(variants)
+
+def getPlatformFilenameAndVariant(filename, platform):
+    """ Returns the (filename, variant) pair, after finding the
+    appropriate filename modified with the ~variant for the
+    platform. """
+
+    basename, ext = os.path.splitext(filename)
+
+    for variant in getVariantsForPlatforms([platform]) + ['']:
+        if os.path.exists(basename + variant + ext):
+            return basename + variant + ext, variant
+
+    raise StandardError, 'No filename for %s, platform %s' % (filename, platform)
+
+
+def getPlatformFilename(filename, platform):
+    """ Returns the filename modified with the ~variant for the
+    platform. """
+
+    return getPlatformFilenameAndVariant(filename, platform)[0]
 
 def enquoteStrings(strings):
     """ Accepts a list of strings, returns a list of strings with
@@ -275,43 +319,33 @@ def circularizeImage(source):
     assert dy == dest_size[1] and dx == 0
     return dest
 
-def makeDoctors():
+def makeDoctors(platform):
     """ Makes the resource string for the list of doctors images. """
 
     basenames = ['twelve', 'one', 'two', 'three', 'four', 'five', 'six',
                  'seven', 'eight', 'nine', 'ten', 'eleven', 'hurt']
 
-    slicePoints = {}
-    for screenWidth in [144, 180]:
-        slicePoints[screenWidth] = [0]
-        for slice in range(numSlices):
-            next = (slice + 1) * screenWidth / numSlices
-            slicePoints[screenWidth].append(next)
+    shape = getPlatformShape(platform)
+    screenWidth, screenHeight = screenSizes[shape]
 
-    slicesDir = '%s/slices' % (resourcesDir)
-    if not os.path.isdir(slicesDir):
-        os.mkdir(slicesDir)
+    slicePoints = [0]
+    for slice in range(numSlices):
+        next = (slice + 1) * screenWidth / numSlices
+        slicePoints.append(next)
+
+    buildDir = '%s/build' % (resourcesDir)
+    if not os.path.isdir(buildDir):
+        os.mkdir(buildDir)
 
     doctorsImages = ''
     doctorsIds = ''
     for basename in basenames:
         doctorsIds += '{\n'
-        ## sourceFilename = '%s/%s.png' % (resourcesDir, basename)
-        ## source = PIL.Image.open(sourceFilename)
-        ## assert source.size == (screenWidth, screenHeight)
 
-        mods = {}
-        for mod in [ '~bw', '~color~rect', '~color~round' ]:
-            if mod == '~bw' and 'aplite' not in targetPlatforms and 'diorite' not in targetPlatforms:
-                continue
-            if mod == '~color~rect' and 'basalt' not in targetPlatforms:
-                continue
-            if mod == '~color~round' and 'chalk' not in targetPlatforms:
-                continue
-            modFilename = '%s/%s%s.png' % (resourcesDir, basename, mod)
-            if os.path.exists(modFilename):
-                modImage = PIL.Image.open(modFilename)
-                mods[mod] = modImage
+        sourceFilename = getPlatformFilename('%s/%s.png' % (resourcesDir, basename), platform)
+        ## sourceFilename = '%s/%s.png' % (resourcesDir, basename)
+        source = PIL.Image.open(sourceFilename)
+        assert source.size == (screenWidth, screenHeight)
 
         for slice in range(numSlices):
             # Make a vertical slice of the image.
@@ -319,42 +353,28 @@ def makeDoctors():
 
             if numSlices != 1:
                 # Make slices.
-                for mod, modImage in mods.items():
-                    screenWidth, screenHeight = 144, 172
-                    if mod == '~color~round':
-                        screenWidth, screenHeight = 180, 180
+                xf = slicePoints[slice]
+                xt = slicePoints[slice + 1]
+                box = (xf, 0, xt, screenHeight)
 
-                    xf = slicePoints[screenWidth][slice]
-                    xt = slicePoints[screenWidth][slice + 1]
-                    box = (xf, 0, xt, screenHeight)
+                image = source.crop(box)
+                filename = 'build/%s_%s_of_%s_%s.png' % (basename, slice + 1, numSlices, platform)
+                image.save('%s/%s' % (resourcesDir, filename))
 
-                    image = modImage.crop(box)
-                    filename = 'slices/%s_%s_of_%s%s.png' % (basename, slice + 1, numSlices, mod)
-                    image.save('%s/%s' % (resourcesDir, filename))
-
-                filename = 'slices/%s_%s_of_%s.png' % (basename, slice + 1, numSlices)
             else:
                 # Special case--no slicing needed; just use the
                 # original full-sized image.  However, we still copy
-                # it into the slices folder, because the ~color~round
+                # it into the build folder, because the ~color~round
                 # version (for Chalk) will need to get circularized.
-                for mod, modImage in mods.items():
-                    image = modImage
-                    if mod == '~color~round':
-                        image = circularizeImage(modImage)
+                if shape == 'round':
+                    image = circularizeImage(source)
+                else:
+                    image = source
 
-                    filename = 'slices/%s%s.png' % (basename, mod)
-                    image.save('%s/%s' % (resourcesDir, filename))
+                filename = 'build/%s_%s.png' % (basename, platform)
+                image.save('%s/%s' % (resourcesDir, filename))
 
-                filename = 'slices/%s.png' % (basename)
-
-            rleFilename, ptype = make_rle(filename, useRle = supportRle, modes = mods.keys())
-
-            doctorsImages += doctorsImage % {
-            'resource_base' : resource_base,
-            'filename' : rleFilename,
-            'ptype' : ptype,
-            }
+            doctorsImages += make_rle(filename, name = resource_base, useRle = supportRle, platforms = [platform])
 
             doctorsIds += 'RESOURCE_ID_%s, ' % (resource_base)
         doctorsIds += '},\n'
@@ -362,31 +382,65 @@ def makeDoctors():
     return slicePoints, doctorsImages, doctorsIds
 
 def configWatch():
-    slicePoints, doctorsImages, doctorsIds = makeDoctors()
-
+    configH = open('%s/generated_config.h' % (resourcesDir), 'w')
     configIn = open('%s/generated_config.h.in' % (resourcesDir), 'r').read()
-    config = open('%s/generated_config.h' % (resourcesDir), 'w')
-    print >> config, configIn % {
-        'doctorsIds' : doctorsIds,
+    print >> configH, configIn % {
         'numSlices' : numSlices,
         'supportRle' : int(supportRle),
         'compileDebugging' : int(compileDebugging),
         }
 
+    configC = open('%s/generated_config.c' % (resourcesDir), 'w')
     configIn = open('%s/generated_config.c.in' % (resourcesDir), 'r').read()
-    config = open('%s/generated_config.c' % (resourcesDir), 'w')
-    print >> config, configIn % {
-        'doctorsIds' : doctorsIds,
-        'slicePointsRound' : ', '.join(map(str, slicePoints[180])),
-        'slicePointsRect' : ', '.join(map(str, slicePoints[144])),
+    print >> configC, configIn % {
         }
+
+    resourceStr = ''
+    for platform in targetPlatforms:
+        shape = getPlatformShape(platform)
+        color = getPlatformColor(platform)
+        screenWidth, screenHeight = screenSizes[shape]
+
+        slicePoints, doctorsImages, doctorsIds = makeDoctors(platform)
+        resourceStr += doctorsImages
+
+        for ti in [1, 2, 3, 4]:
+            filename = 'tardis_%02d.png' % (ti)
+            name = 'TARDIS_%02d' % (ti)
+            resourceStr += make_rle(filename, name = name, useRle = False, platforms = [platform], compress = False)
+
+        for basename in ['dalek', 'k9']:
+            filename = '%s.png' % (basename)
+            name = basename.upper()
+            resourceStr += make_rle(filename, name = name, useRle = supportRle, platforms = [platform])
+
+        if color == 'bw':
+            for basename in ['tardis', 'dalek', 'k9']:
+                filename = '%s_mask.png' % (basename)
+                name = '%s_MASK' % (basename.upper())
+                resourceStr += make_rle(filename, name = name, useRle = supportRle, platforms = [platform])
+
+
+        configIn = open('%s/generated_config.h.per_platform_in' % (resourcesDir), 'r').read()
+        print >> configH, configIn % {
+            'platformUpper' : platform.upper(),
+            'screenWidth' : screenWidth,
+            'screenHeight' : screenHeight,
+            }
+
+        configIn = open('%s/generated_config.c.per_platform_in' % (resourcesDir), 'r').read()
+        print >> configC, configIn % {
+            'platformUpper' : platform.upper(),
+            'doctorsIds' : doctorsIds,
+            'slicePoints' : ', '.join(map(str, slicePoints)),
+            }
 
     resourceIn = open('%s/package.json.in' % (rootDir), 'r').read()
     resource = open('%s/package.json' % (rootDir), 'w')
 
     print >> resource, resourceIn % {
         'targetPlatforms' : ', '.join(enquoteStrings(targetPlatforms)),
-        'doctorsImages' : doctorsImages,
+        'resourceStr' : resourceStr,
         }
 
 
@@ -398,7 +452,6 @@ except getopt.error, msg:
 
 numSlices = 1
 compileDebugging = False
-#supportRle = True
 supportRle = False
 targetPlatforms = [ ]
 for opt, arg in opts:
@@ -409,7 +462,7 @@ for opt, arg in opts:
     elif opt == '-d':
         compileDebugging = True
     elif opt == '-x':
-        supportRle = False
+        supportRle = True
     elif opt == '-h':
         usage(0)
 

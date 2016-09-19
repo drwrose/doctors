@@ -1,0 +1,11 @@
+#ifdef PBL_PLATFORM_%(platformUpper)s
+
+unsigned char face_resource_ids[NUM_DOCTORS][NUM_SLICES] = {
+  %(doctorsIds)s
+};
+
+unsigned char slice_points[NUM_SLICES + 1] = {
+  %(slicePoints)s
+};
+
+#endif  // PBL_PLATFORM_%(platformUpper)s

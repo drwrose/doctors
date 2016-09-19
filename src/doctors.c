@@ -391,7 +391,7 @@ void start_transition(int face_new, bool for_startup) {
   case SPRITE_TARDIS:
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition TARDIS, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
 #ifdef PBL_BW
-    sprite_mask = png_bwd_create(RESOURCE_ID_TARDIS_MASK);
+    sprite_mask = rle_bwd_create(RESOURCE_ID_TARDIS_MASK);
 #endif  // PBL_BW
     //sprite_width = gbitmap_get_bounds(sprite_mask.bitmap).size.w;
     sprite_width = 112;
@@ -401,9 +401,9 @@ void start_transition(int face_new, bool for_startup) {
   case SPRITE_K9:
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition K9, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
 #ifdef PBL_BW
-    sprite_mask = png_bwd_create(RESOURCE_ID_K9_MASK);
+    sprite_mask = rle_bwd_create(RESOURCE_ID_K9_MASK);
 #endif  // PBL_BW
-    sprite = png_bwd_create(RESOURCE_ID_K9);
+    sprite = rle_bwd_create(RESOURCE_ID_K9);
     if (sprite.bitmap != NULL) {
       sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
       //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "k9 loaded %p, format = %d", sprite.bitmap, gbitmap_get_format(sprite.bitmap));
@@ -420,9 +420,9 @@ void start_transition(int face_new, bool for_startup) {
   case SPRITE_DALEK:
     //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "starting transition DALEK, memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
 #ifdef PBL_BW
-    sprite_mask = png_bwd_create(RESOURCE_ID_DALEK_MASK);
+    sprite_mask = rle_bwd_create(RESOURCE_ID_DALEK_MASK);
 #endif  // PBL_BW
-    sprite = png_bwd_create(RESOURCE_ID_DALEK);
+    sprite = rle_bwd_create(RESOURCE_ID_DALEK);
     if (sprite.bitmap != NULL) {
       sprite_width = gbitmap_get_bounds(sprite.bitmap).size.w;
       //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "dalek loaded %p, format = %d", sprite.bitmap, gbitmap_get_format(sprite.bitmap));
