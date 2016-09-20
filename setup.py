@@ -232,6 +232,13 @@ screenSizes = {
     'emery' : (200, 228),
     }
 
+# [fill_rect, bar_rect, (font, vshift)] where rect is (x, y, w, h)
+batteryGaugeSizes = {
+    'rect' : [(6, 0, 18, 10), (10, 3, 10, 4), ('GOTHIC_14', -4)],
+    'round' : [(6, 0, 18, 10), (10, 3, 10, 4), ('GOTHIC_14', -4)],
+    'emery' : [(8, 0, 25, 14), (13, 3, 15, 8), ('GOTHIC_18', -5)],
+    }
+
 def getPlatformShape(platform):
     if platform in ['aplite', 'basalt', 'diorite']:
         shape = 'rect'
@@ -420,12 +427,39 @@ def configWatch():
                 name = '%s_MASK' % (basename.upper())
                 resourceStr += make_rle(filename, name = name, useRle = supportRle, platforms = [platform])
 
+        bluetoothFilename = getPlatformFilename('resources/bluetooth_connected.png', platform)
+        im = PIL.Image.open(bluetoothFilename)
+        bluetoothSizes[platform] = im.size
+
+        resourceStr += make_rle('bluetooth_connected.png', name = 'BLUETOOTH_CONNECTED', useRle = supportRle, platforms = [platform], compress = True)
+        resourceStr += make_rle('bluetooth_disconnected.png', name = 'BLUETOOTH_DISCONNECTED', useRle = supportRle, platforms = [platform], compress = True)
+        if color == 'bw':
+            resourceStr += make_rle('bluetooth_mask.png', name = 'BLUETOOTH_MASK', useRle = supportRle, platforms = [platform], compress = True)
+
+        resourceStr += make_rle('battery_gauge_empty.png', name = 'BATTERY_GAUGE_EMPTY', useRle = supportRle, platforms = [platform], compress = True)
+        resourceStr += make_rle('battery_gauge_charged.png', name = 'BATTERY_GAUGE_CHARGED', useRle = supportRle, platforms = [platform], compress = True)
+        resourceStr += make_rle('charging.png', name = 'CHARGING', useRle = supportRle, platforms = [platform], compress = True)
+        if color == 'bw':
+            resourceStr += make_rle('battery_gauge_mask.png', name = 'BATTERY_GAUGE_MASK', useRle = supportRle, platforms = [platform], compress = True)
+            resourceStr += make_rle('charging_mask.png', name = 'CHARGING_MASK', useRle = supportRle, platforms = [platform], compress = True)
 
         configIn = open('%s/generated_config.h.per_platform_in' % (resourcesDir), 'r').read()
         print >> configH, configIn % {
             'platformUpper' : platform.upper(),
             'screenWidth' : screenWidth,
             'screenHeight' : screenHeight,
+            'batteryGaugeFillX' : batteryGaugeSizes[shape][0][0],
+            'batteryGaugeFillY' : batteryGaugeSizes[shape][0][1],
+            'batteryGaugeFillW' : batteryGaugeSizes[shape][0][2],
+            'batteryGaugeFillH' : batteryGaugeSizes[shape][0][3],
+            'batteryGaugeBarX' : batteryGaugeSizes[shape][1][0],
+            'batteryGaugeBarY' : batteryGaugeSizes[shape][1][1],
+            'batteryGaugeBarW' : batteryGaugeSizes[shape][1][2],
+            'batteryGaugeBarH' : batteryGaugeSizes[shape][1][3],
+            'batteryGaugeFont' : batteryGaugeSizes[shape][2][0],
+            'batteryGaugeVshift' : batteryGaugeSizes[shape][2][1],
+            'bluetoothSizeX' : bluetoothSizes[platform][0],
+            'bluetoothSizeY' : bluetoothSizes[platform][1],
             }
 
         configIn = open('%s/generated_config.c.per_platform_in' % (resourcesDir), 'r').read()
@@ -468,5 +502,7 @@ for opt, arg in opts:
 
 if not targetPlatforms:
     targetPlatforms = [ "aplite", "basalt", "chalk", "diorite" ]
+
+bluetoothSizes = {} # filled in by configWatch()
 
 configWatch()

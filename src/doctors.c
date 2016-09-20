@@ -1217,10 +1217,10 @@ void handle_init() {
 
 #ifdef PBL_ROUND
   move_bluetooth_indicator(10, 42, false);
-  move_battery_gauge(150, 46, false);
+  move_battery_gauge(144, 46, false);
 #else  // PBL_ROUND
   move_bluetooth_indicator(0, 0, false);
-  move_battery_gauge(125, 0, false);
+  move_battery_gauge(119, 0, false);
 #endif  // PBL_ROUND
 
 #if PBL_API_EXISTS(layer_get_unobstructed_bounds)

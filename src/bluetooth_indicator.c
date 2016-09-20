@@ -103,7 +103,7 @@ void init_bluetooth_indicator(Layer *window_layer) {
 #ifdef DYNAMIC_INVERT
   bluetooth_invert = false;
 #endif  // DYNAMIC_INVERT
-  bluetooth_layer = layer_create(GRect(0, 0, 18, 18));
+  bluetooth_layer = layer_create(GRect(0, 0, BLUETOOTH_SIZE_X, BLUETOOTH_SIZE_Y));
   layer_set_update_proc(bluetooth_layer, &bluetooth_layer_update_callback);
   layer_add_child(window_layer, bluetooth_layer);
   bluetooth_connection_service_subscribe(&handle_bluetooth);
@@ -113,7 +113,7 @@ void move_bluetooth_indicator(int x, int y, bool invert) {
 #ifdef DYNAMIC_INVERT
   bluetooth_invert = invert;
 #endif  // DYNAMIC_INVERT
-  layer_set_frame((Layer *)bluetooth_layer, GRect(x, y, 18, 18));
+  layer_set_frame((Layer *)bluetooth_layer, GRect(x, y, BLUETOOTH_SIZE_X, BLUETOOTH_SIZE_Y));
 }
 
 void deinit_bluetooth_indicator() {

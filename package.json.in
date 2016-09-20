@@ -16,69 +16,6 @@
           "name": "APP_ICON",
           "file": "app_icon.png"
         },
-        {
-          "type": "bitmap",
-          "memoryFormat" : "1Bit",
-          "name": "BATTERY_GAUGE_EMPTY",
-          "file": "battery_gauge_empty.png"
-        },
-        {
-          "type": "bitmap",
-          "memoryFormat" : "1Bit",
-          "name": "BATTERY_GAUGE_CHARGED",
-          "file": "battery_gauge_charged.png"
-        },
-        {
-          "type": "bitmap",
-          "memoryFormat" : "1Bit",
-          "name": "BATTERY_GAUGE_MASK",
-          "file": "battery_gauge_mask.png"
-        },
-        {
-          "type": "bitmap",
-          "memoryFormat" : "1Bit",
-          "name": "CHARGING",
-          "file": "charging.png"
-        },
-        {
-          "type": "bitmap",
-          "memoryFormat" : "1Bit",
-          "name": "CHARGING_MASK",
-          "file": "charging_mask.png"
-        },
-        {
-          "targetPlatforms": [ "aplite", "diorite" ],
-          "type": "bitmap",
-          "memoryFormat" : "1Bit",
-          "name": "BLUETOOTH_DISCONNECTED",
-          "file": "bluetooth_disconnected_bw.png"
-        },
-        {
-          "targetPlatforms": [ "basalt", "chalk" ],
-          "type": "bitmap",
-          "name": "BLUETOOTH_DISCONNECTED",
-          "file": "bluetooth_disconnected_color.png"
-        },
-        {
-          "targetPlatforms": [ "aplite", "diorite" ],
-          "type": "bitmap",
-          "memoryFormat" : "1Bit",
-          "name": "BLUETOOTH_CONNECTED",
-          "file": "bluetooth_connected_bw.png"
-        },
-        {
-          "targetPlatforms": [ "basalt", "chalk" ],
-          "type": "bitmap",
-          "name": "BLUETOOTH_CONNECTED",
-          "file": "bluetooth_connected_color.png"
-        },
-        {
-          "targetPlatforms": [ "aplite", "diorite" ],
-          "type": "bitmap",
-          "memoryFormat" : "1Bit",
-          "name": "BLUETOOTH_MASK",
-          "file": "bluetooth_mask.png"
-        },
 %(resourceStr)s
         {
           "type": "bitmap",
