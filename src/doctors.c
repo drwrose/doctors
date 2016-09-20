@@ -7,6 +7,7 @@
 #include "config_options.h"
 #include "bwd.h"
 #include "lang_table.h"
+#include "qapp_log.h"
 #include "../resources/lang_table.c"
 #include "../resources/generated_config.h"
 #include "../resources/generated_config.c"
@@ -351,14 +352,14 @@ void stop_transition() {
     app_timer_cancel(anim_timer);
     anim_timer = NULL;
   }
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "stop_transition(), memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
+  qapp_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "stop_transition(), memory used, free is %d, %d", heap_bytes_used(), heap_bytes_free());
 }
 
 void start_transition(int face_new, bool for_startup) {
   if (face_transition) {
     stop_transition();
   }
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "start_transition(%d, %d)", face_new, for_startup);
+  qapp_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "start_transition(%d, %d)", face_new, for_startup);
 
   // Update the face display.
   face_value = face_new;
@@ -862,7 +863,7 @@ void face_layer_update_callback(Layer *me, GContext *ctx) {
 }
 
 void mm_layer_update_callback(Layer *me, GContext* ctx) {
-  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "mm_layer");
+  //  qapp_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "mm_layer");
   GFont font;
   static const int buffer_size = 128;
   char buffer[buffer_size];
@@ -902,7 +903,7 @@ void mm_layer_update_callback(Layer *me, GContext* ctx) {
 }
 
 void hhmm_layer_update_callback(Layer *me, GContext* ctx) {
-  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "hhmm_layer");
+  //  qapp_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "hhmm_layer");
   GFont font;
   static const int buffer_size = 128;
   char buffer[buffer_size];
@@ -949,7 +950,7 @@ void hhmm_layer_update_callback(Layer *me, GContext* ctx) {
 }
 
 void date_layer_update_callback(Layer *me, GContext* ctx) {
-  //  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "date_layer: %d", config.show_date);
+  //  qapp_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "date_layer: %d", config.show_date);
   if (config.show_date) {
     static const int buffer_size = 128;
     char buffer[buffer_size];
@@ -1075,7 +1076,7 @@ void handle_tick(struct tm *tick_time, TimeUnits units_changed) {
 
 // Updates any runtime settings as needed when the config changes.
 void apply_config() {
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "apply_config, second_hand=%d", config.second_hand);
+  qapp_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "apply_config, second_hand=%d", config.second_hand);
   tick_timer_service_unsubscribe();
 
 #ifdef FAST_TIME
@@ -1114,7 +1115,7 @@ void adjust_unobstructed_area() {
   any_obstructed_area = (memcmp(&bounds, &orig_bounds, sizeof(bounds)) != 0);
   int bottom_shift = SCREEN_HEIGHT - bounds.size.h;
 
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "unobstructed_area: %d %d %d %d, bottom_shift = %d, any_obstructed_area = %d", bounds.origin.x, bounds.origin.y, bounds.size.w, bounds.size.h, bottom_shift, any_obstructed_area);
+  qapp_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "unobstructed_area: %d %d %d %d, bottom_shift = %d, any_obstructed_area = %d", bounds.origin.x, bounds.origin.y, bounds.size.w, bounds.size.h, bottom_shift, any_obstructed_area);
 
   // Shift everything on the bottom of the screen up by the
   // appropriate amount.
@@ -1157,16 +1158,16 @@ void handle_init() {
 #ifndef NDEBUG
   uint32_t inbox_max = app_message_inbox_size_maximum();
   uint32_t outbox_max = app_message_outbox_size_maximum();
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "available message space %u, %u", (unsigned int)inbox_max, (unsigned int)outbox_max);
+  qapp_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "available message space %u, %u", (unsigned int)inbox_max, (unsigned int)outbox_max);
   if (inbox_max > INBOX_MESSAGE_SIZE) {
     inbox_max = INBOX_MESSAGE_SIZE;
   }
   if (outbox_max > OUTBOX_MESSAGE_SIZE) {
     outbox_max = OUTBOX_MESSAGE_SIZE;
   }
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "app_message_open(%u, %u)", (unsigned int)inbox_max, (unsigned int)outbox_max);
+  qapp_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "app_message_open(%u, %u)", (unsigned int)inbox_max, (unsigned int)outbox_max);
   AppMessageResult open_result = app_message_open(inbox_max, outbox_max);
-  app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "open_result = %d", open_result);
+  qapp_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "open_result = %d", open_result);
 
 #else  // NDEBUG
   app_message_open(INBOX_MESSAGE_SIZE, OUTBOX_MESSAGE_SIZE);
