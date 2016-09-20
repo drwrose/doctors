@@ -35,37 +35,44 @@ void battery_gauge_layer_update_callback(Layer *me, GContext *ctx) {
 
   GCompOp fg_mode;
   GColor fg_color, bg_color;
+
+#ifdef PBL_BW
   GCompOp mask_mode;
+  fg_mode = GCompOpSet;
+  bg_color = GColorBlack;
+  fg_color = GColorWhite;
+  mask_mode = GCompOpAnd;
+#else  // PBL_BW
+  // In Basalt, we always use GCompOpSet because the icon includes its
+  // own alpha channel.
+  fg_mode = GCompOpSet;
+  bg_color = GColorWhite;
+  fg_color = GColorBlack;
+#endif  // PBL_BW
 
-  if (battery_gauge_invert) {
-    fg_mode = GCompOpSet;
-    bg_color = GColorBlack;
-    fg_color = GColorWhite;
-    mask_mode = GCompOpAnd;
-  } else {
-    fg_mode = GCompOpAnd;
-    bg_color = GColorWhite;
-    fg_color = GColorBlack;
-    mask_mode = GCompOpSet;
-  }
+  bool fully_charged = (!charge_state.is_charging && charge_state.is_plugged && charge_state.charge_percent >= 80);
 
+#ifdef PBL_BW
   // Draw the background of the layer.
   if (charge_state.is_charging) {
     // Erase the charging icon shape.
     if (charging_mask.bitmap == NULL) {
-      charging_mask = png_bwd_create(RESOURCE_ID_CHARGING_MASK);
+      charging_mask = rle_bwd_create(RESOURCE_ID_CHARGING_MASK);
     }
     graphics_context_set_compositing_mode(ctx, mask_mode);
     graphics_draw_bitmap_in_rect(ctx, charging_mask.bitmap, box);
   }
+#endif  // PBL_BW
 
-  if (config.battery_gauge != IM_digital) {
+  if (config.battery_gauge != IM_digital || fully_charged) {
+#ifdef PBL_BW
     // Erase the battery gauge shape.
     if (battery_gauge_mask.bitmap == NULL) {
-      battery_gauge_mask = png_bwd_create(RESOURCE_ID_BATTERY_GAUGE_MASK);
+      battery_gauge_mask = rle_bwd_create(RESOURCE_ID_BATTERY_GAUGE_MASK);
     }
     graphics_context_set_compositing_mode(ctx, mask_mode);
     graphics_draw_bitmap_in_rect(ctx, battery_gauge_mask.bitmap, box);
+#endif  // PBL_BW
   } else {
     // Erase a rectangle for text.
     graphics_context_set_fill_color(ctx, bg_color);
@@ -75,16 +82,18 @@ void battery_gauge_layer_update_callback(Layer *me, GContext *ctx) {
   if (charge_state.is_charging) {
     // Actively charging.  Draw the charging icon.
     if (charging.bitmap == NULL) {
-      charging = png_bwd_create(RESOURCE_ID_CHARGING);
+      charging = rle_bwd_create(RESOURCE_ID_CHARGING);
+      //remap_colors_date(&charging);
     }
     graphics_context_set_compositing_mode(ctx, fg_mode);
     graphics_draw_bitmap_in_rect(ctx, charging.bitmap, box);
   }
 
-  if (!charge_state.is_charging && charge_state.is_plugged && charge_state.charge_percent >= 80) {
+  if (fully_charged) {
     // Plugged in but not charging.  Draw the charged icon.
     if (battery_gauge_charged.bitmap == NULL) {
-      battery_gauge_charged = png_bwd_create(RESOURCE_ID_BATTERY_GAUGE_CHARGED);
+      battery_gauge_charged = rle_bwd_create(RESOURCE_ID_BATTERY_GAUGE_CHARGED);
+      //remap_colors_date(&battery_gauge_charged);
     }
     graphics_context_set_compositing_mode(ctx, fg_mode);
     graphics_draw_bitmap_in_rect(ctx, battery_gauge_charged.bitmap, box);
@@ -92,7 +101,8 @@ void battery_gauge_layer_update_callback(Layer *me, GContext *ctx) {
   } else if (config.battery_gauge != IM_digital) {
     // Not plugged in.  Draw the analog battery icon.
     if (battery_gauge_empty.bitmap == NULL) {
-      battery_gauge_empty = png_bwd_create(RESOURCE_ID_BATTERY_GAUGE_EMPTY);
+      battery_gauge_empty = rle_bwd_create(RESOURCE_ID_BATTERY_GAUGE_EMPTY);
+      //remap_colors_date(&battery_gauge_empty);
     }
     graphics_context_set_compositing_mode(ctx, fg_mode);
     graphics_context_set_fill_color(ctx, fg_color);
@@ -107,9 +117,9 @@ void battery_gauge_layer_update_callback(Layer *me, GContext *ctx) {
     GFont font = fonts_get_system_font(BATTERY_GAUGE_SYSTEM_FONT);
     graphics_context_set_text_color(ctx, fg_color);
     graphics_draw_text(ctx, text_buffer, font, GRect(BATTERY_GAUGE_FILL_X, BATTERY_GAUGE_FILL_Y + BATTERY_GAUGE_FONT_VSHIFT, BATTERY_GAUGE_FILL_W, BATTERY_GAUGE_FILL_H),
-		       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter,
-		       NULL);
- }
+                       GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter,
+                       NULL);
+  }
 }
 
 // Update the battery guage.
