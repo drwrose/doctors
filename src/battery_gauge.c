@@ -11,8 +11,6 @@ BitmapWithData charging;
 BitmapWithData charging_mask;
 Layer *battery_gauge_layer;
 
-bool battery_gauge_invert = false;
-
 void battery_gauge_layer_update_callback(Layer *me, GContext *ctx) {
   if (config.battery_gauge == IM_off) {
     return;
@@ -128,17 +126,11 @@ void handle_battery(BatteryChargeState charge_state) {
   layer_mark_dirty(battery_gauge_layer);
 }
 
-void init_battery_gauge(Layer *window_layer) {
-  battery_gauge_invert = false;
-  battery_gauge_layer = layer_create(GRect(0, 0, BATTERY_GAUGE_FILL_X + BATTERY_GAUGE_FILL_W, BATTERY_GAUGE_FILL_Y + BATTERY_GAUGE_FILL_H));
+void init_battery_gauge(Layer *window_layer, int x, int y) {
+  battery_gauge_layer = layer_create(GRect(x, y, BATTERY_GAUGE_FILL_X + BATTERY_GAUGE_FILL_W, BATTERY_GAUGE_FILL_Y + BATTERY_GAUGE_FILL_H));
   layer_set_update_proc(battery_gauge_layer, &battery_gauge_layer_update_callback);
   layer_add_child(window_layer, battery_gauge_layer);
   battery_state_service_subscribe(&handle_battery);
-}
-
-void move_battery_gauge(int x, int y, bool invert) {
-  battery_gauge_invert = invert;
-  layer_set_frame((Layer *)battery_gauge_layer, GRect(x, y, BATTERY_GAUGE_FILL_X + BATTERY_GAUGE_FILL_W, BATTERY_GAUGE_FILL_Y + BATTERY_GAUGE_FILL_H));
 }
 
 void deinit_battery_gauge() {

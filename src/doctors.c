@@ -1227,15 +1227,12 @@ void handle_init() {
   layer_set_update_proc(date_layer, &date_layer_update_callback);
   layer_add_child(root_layer, date_layer);
 
-  init_bluetooth_indicator(root_layer);
-  init_battery_gauge(root_layer);
-
 #ifdef PBL_ROUND
-  move_bluetooth_indicator(10, 42, false);
-  move_battery_gauge(144, 46, false);
+  init_bluetooth_indicator(root_layer, 10, 42);
+  init_battery_gauge(root_layer, 144, 46);
 #else  // PBL_ROUND
-  move_bluetooth_indicator(0, 0, false);
-  move_battery_gauge(119, 0, false);
+  init_bluetooth_indicator(root_layer, 0, 0);
+  init_battery_gauge(root_layer, 119, 0);
 #endif  // PBL_ROUND
 
 #if PBL_API_EXISTS(layer_get_unobstructed_bounds)

@@ -10,21 +10,6 @@ BitmapWithData bluetooth_mask;
 Layer *bluetooth_layer;
 bool bluetooth_state = false;
 
-//#define DYNAMIC_INVERT
-
-#ifdef DYNAMIC_INVERT
-
-// On monochrome watches, these parameters are passed in.
-bool bluetooth_invert = false;
-
-#else  // DYNAMIC_INVERT
-
-// On color watches, the icon is never inverted.
-#define bluetooth_invert false
-
-#endif  // DYNAMIC_INVERT
-
-
 void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
   if (config.bluetooth_indicator == IM_off) {
     return;
@@ -37,14 +22,8 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
   GCompOp fg_mode;
 
 #ifdef PBL_BW
-  GCompOp mask_mode;
-  if (bluetooth_invert) {
-    fg_mode = GCompOpSet;
-    mask_mode = GCompOpAnd;
-  } else {
-    fg_mode = GCompOpAnd;
-    mask_mode = GCompOpSet;
-  }
+  fg_mode = GCompOpAnd;
+  GCompOp mask_mode = GCompOpSet;
 #else  // PBL_BW
   // On color watches, we always use GCompOpSet because the icon
   // includes its own alpha channel.
@@ -100,21 +79,11 @@ void handle_bluetooth(bool connected) {
   layer_mark_dirty(bluetooth_layer);
 }
 
-void init_bluetooth_indicator(Layer *window_layer) {
-#ifdef DYNAMIC_INVERT
-  bluetooth_invert = false;
-#endif  // DYNAMIC_INVERT
-  bluetooth_layer = layer_create(GRect(0, 0, BLUETOOTH_SIZE_X, BLUETOOTH_SIZE_Y));
+void init_bluetooth_indicator(Layer *window_layer, int x, int y) {
+  bluetooth_layer = layer_create(GRect(x, y, BLUETOOTH_SIZE_X, BLUETOOTH_SIZE_Y));
   layer_set_update_proc(bluetooth_layer, &bluetooth_layer_update_callback);
   layer_add_child(window_layer, bluetooth_layer);
   bluetooth_connection_service_subscribe(&handle_bluetooth);
-}
-
-void move_bluetooth_indicator(int x, int y, bool invert) {
-#ifdef DYNAMIC_INVERT
-  bluetooth_invert = invert;
-#endif  // DYNAMIC_INVERT
-  layer_set_frame((Layer *)bluetooth_layer, GRect(x, y, BLUETOOTH_SIZE_X, BLUETOOTH_SIZE_Y));
 }
 
 void deinit_bluetooth_indicator() {

@@ -3,7 +3,7 @@
 
 #include <pebble.h>
 
-#define PBL_PLATFORM_EMERY  // hack
+//#define PBL_PLATFORM_EMERY  // hack
 
 #include "../resources/generated_config.h"
 
