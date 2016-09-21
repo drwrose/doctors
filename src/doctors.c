@@ -874,7 +874,8 @@ void mm_layer_update_callback(Layer *me, GContext* ctx) {
 
   // Draw the background card for the minutes digits.
   if (mins_background.bitmap == NULL) {
-    mins_background = png_bwd_create(RESOURCE_ID_MINS_BACKGROUND);
+    mins_background = rle_bwd_create(RESOURCE_ID_MINS_BACKGROUND);
+    //app_log(APP_LOG_LEVEL_INFO, __FILE__, __LINE__, "mins_background loaded %p, format = %d", mins_background.bitmap, gbitmap_get_format(mins_background.bitmap));
   }
   if (mins_background.bitmap != NULL) {
     graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, mins_background_box);
@@ -915,7 +916,7 @@ void hhmm_layer_update_callback(Layer *me, GContext* ctx) {
 
   // Draw the background card for the hours digits.
   if (hours_background.bitmap == NULL) {
-    hours_background = png_bwd_create(RESOURCE_ID_HOURS_BACKGROUND);
+    hours_background = rle_bwd_create(RESOURCE_ID_HOURS_BACKGROUND);
   }
   if (hours_background.bitmap != NULL) {
     graphics_draw_bitmap_in_rect(ctx, hours_background.bitmap, hours_background_box);
@@ -959,7 +960,7 @@ void date_layer_update_callback(Layer *me, GContext* ctx) {
     graphics_context_set_compositing_mode(ctx, GCompOpOr);
 
     if (date_background.bitmap == NULL) {
-      date_background = png_bwd_create(RESOURCE_ID_DATE_BACKGROUND);
+      date_background = rle_bwd_create(RESOURCE_ID_DATE_BACKGROUND);
     }
     if (date_background.bitmap != NULL) {
       graphics_draw_bitmap_in_rect(ctx, date_background.bitmap, date_background_box);

@@ -65,13 +65,13 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
       // is set to IM_when_needed; only on IM_always.
 #ifdef PBL_BW
       if (bluetooth_mask.bitmap == NULL) {
-        bluetooth_mask = png_bwd_create(RESOURCE_ID_BLUETOOTH_MASK);
+        bluetooth_mask = rle_bwd_create(RESOURCE_ID_BLUETOOTH_MASK);
       }
       graphics_context_set_compositing_mode(ctx, mask_mode);
       graphics_draw_bitmap_in_rect(ctx, bluetooth_mask.bitmap, box);
 #endif  // PBL_BW
       if (bluetooth_connected.bitmap == NULL) {
-        bluetooth_connected = png_bwd_create(RESOURCE_ID_BLUETOOTH_CONNECTED);
+        bluetooth_connected = rle_bwd_create(RESOURCE_ID_BLUETOOTH_CONNECTED);
       }
       graphics_context_set_compositing_mode(ctx, fg_mode);
       graphics_draw_bitmap_in_rect(ctx, bluetooth_connected.bitmap, box);
@@ -81,13 +81,13 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
     // case, of course).
 #ifdef PBL_BW
     if (bluetooth_mask.bitmap == NULL) {
-      bluetooth_mask = png_bwd_create(RESOURCE_ID_BLUETOOTH_MASK);
+      bluetooth_mask = rle_bwd_create(RESOURCE_ID_BLUETOOTH_MASK);
     }
     graphics_context_set_compositing_mode(ctx, mask_mode);
     graphics_draw_bitmap_in_rect(ctx, bluetooth_mask.bitmap, box);
 #endif  // PBL_BW
     if (bluetooth_disconnected.bitmap == NULL) {
-      bluetooth_disconnected = png_bwd_create(RESOURCE_ID_BLUETOOTH_DISCONNECTED);
+      bluetooth_disconnected = rle_bwd_create(RESOURCE_ID_BLUETOOTH_DISCONNECTED);
     }
     graphics_context_set_compositing_mode(ctx, fg_mode);
     graphics_draw_bitmap_in_rect(ctx, bluetooth_disconnected.bitmap, box);

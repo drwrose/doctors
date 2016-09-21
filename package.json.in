@@ -10,30 +10,12 @@
     "sdkVersion": "3",
     "resources": {
       "media": [
+%(resourceStr)s
         {
           "menuIcon": true,
           "type": "bitmap",
           "name": "APP_ICON",
           "file": "app_icon.png"
-        },
-%(resourceStr)s
-        {
-          "type": "bitmap",
-          "memoryFormat" : "1Bit",
-          "name": "MINS_BACKGROUND",
-          "file": "mins_background.png"
-        },
-        {
-          "type": "bitmap",
-          "memoryFormat" : "1Bit",
-          "name": "HOURS_BACKGROUND",
-          "file": "hours_background.png"
-        },
-        {
-          "type": "bitmap",
-          "memoryFormat" : "1Bit",
-          "name": "DATE_BACKGROUND",
-          "file": "date_background.png"
         }
       ]
     },

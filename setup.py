@@ -6,6 +6,7 @@ import sys
 import os
 import getopt
 from resources.make_rle import make_rle
+from resources.peb_platform import getPlatformShape, getPlatformColor, getPlatformFilename, screenSizes
 
 help = """
 setup.py
@@ -226,72 +227,12 @@ circularBufferSize = [
     (76, 103),
     ]
 
-screenSizes = {
-    'rect' : (144, 168),
-    'round' : (180, 180),
-    'emery' : (200, 228),
-    }
-
 # [fill_rect, bar_rect, (font, vshift)] where rect is (x, y, w, h)
 batteryGaugeSizes = {
     'rect' : [(6, 0, 18, 10), (10, 3, 10, 4), ('GOTHIC_14', -4)],
     'round' : [(6, 0, 18, 10), (10, 3, 10, 4), ('GOTHIC_14', -4)],
     'emery' : [(8, 0, 25, 14), (13, 3, 15, 8), ('GOTHIC_18', -5)],
     }
-
-def getPlatformShape(platform):
-    if platform in ['aplite', 'basalt', 'diorite']:
-        shape = 'rect'
-    elif platform in ['chalk']:
-        shape = 'round'
-    elif platform in ['emery']:
-        shape = 'emery'
-    else:
-        raise StandardError
-    return shape
-
-def getPlatformColor(platform):
-    if platform in ['aplite', 'diorite']:
-        color = 'bw'
-    elif platform in ['chalk', 'basalt', 'emery']:
-        color = 'color'
-    else:
-        raise StandardError
-    return color
-
-def getVariantsForPlatforms(platforms):
-    variants = set()
-    if 'aplite' in platforms or 'diorite' in platforms:
-        variants.add('~bw')
-    if 'basalt' in platforms:
-        variants.add('~color')
-        variants.add('~color~rect')
-    if 'chalk' in platforms:
-        variants.add('~color')
-        variants.add('~color~round')
-    if 'emery' in platforms:
-        variants.add('~emery')
-    return list(variants)
-
-def getPlatformFilenameAndVariant(filename, platform):
-    """ Returns the (filename, variant) pair, after finding the
-    appropriate filename modified with the ~variant for the
-    platform. """
-
-    basename, ext = os.path.splitext(filename)
-
-    for variant in getVariantsForPlatforms([platform]) + ['']:
-        if os.path.exists(basename + variant + ext):
-            return basename + variant + ext, variant
-
-    raise StandardError, 'No filename for %s, platform %s' % (filename, platform)
-
-
-def getPlatformFilename(filename, platform):
-    """ Returns the filename modified with the ~variant for the
-    platform. """
-
-    return getPlatformFilenameAndVariant(filename, platform)[0]
 
 def enquoteStrings(strings):
     """ Accepts a list of strings, returns a list of strings with
@@ -414,12 +355,12 @@ def configWatch():
         for ti in [1, 2, 3, 4]:
             filename = 'tardis_%02d.png' % (ti)
             name = 'TARDIS_%02d' % (ti)
-            resourceStr += make_rle(filename, name = name, useRle = False, platforms = [platform], compress = False)
+            resourceStr += make_rle(filename, name = name, useRle = False, platforms = [platform], compress = False, requirePalette = False)
 
         for basename in ['dalek', 'k9']:
             filename = '%s.png' % (basename)
             name = basename.upper()
-            resourceStr += make_rle(filename, name = name, useRle = supportRle, platforms = [platform])
+            resourceStr += make_rle(filename, name = name, useRle = supportRle, platforms = [platform], requirePalette = True)
 
         if color == 'bw':
             for basename in ['tardis', 'dalek', 'k9']:
@@ -431,17 +372,17 @@ def configWatch():
         im = PIL.Image.open(bluetoothFilename)
         bluetoothSizes[platform] = im.size
 
-        resourceStr += make_rle('bluetooth_connected.png', name = 'BLUETOOTH_CONNECTED', useRle = supportRle, platforms = [platform], compress = True)
-        resourceStr += make_rle('bluetooth_disconnected.png', name = 'BLUETOOTH_DISCONNECTED', useRle = supportRle, platforms = [platform], compress = True)
+        resourceStr += make_rle('bluetooth_connected.png', name = 'BLUETOOTH_CONNECTED', useRle = supportRle, platforms = [platform])
+        resourceStr += make_rle('bluetooth_disconnected.png', name = 'BLUETOOTH_DISCONNECTED', useRle = supportRle, platforms = [platform])
         if color == 'bw':
-            resourceStr += make_rle('bluetooth_mask.png', name = 'BLUETOOTH_MASK', useRle = supportRle, platforms = [platform], compress = True)
+            resourceStr += make_rle('bluetooth_mask.png', name = 'BLUETOOTH_MASK', useRle = supportRle, platforms = [platform])
 
-        resourceStr += make_rle('battery_gauge_empty.png', name = 'BATTERY_GAUGE_EMPTY', useRle = supportRle, platforms = [platform], compress = True)
-        resourceStr += make_rle('battery_gauge_charged.png', name = 'BATTERY_GAUGE_CHARGED', useRle = supportRle, platforms = [platform], compress = True)
-        resourceStr += make_rle('charging.png', name = 'CHARGING', useRle = supportRle, platforms = [platform], compress = True)
+        resourceStr += make_rle('battery_gauge_empty.png', name = 'BATTERY_GAUGE_EMPTY', useRle = supportRle, platforms = [platform])
+        resourceStr += make_rle('battery_gauge_charged.png', name = 'BATTERY_GAUGE_CHARGED', useRle = supportRle, platforms = [platform])
+        resourceStr += make_rle('charging.png', name = 'CHARGING', useRle = supportRle, platforms = [platform])
         if color == 'bw':
-            resourceStr += make_rle('battery_gauge_mask.png', name = 'BATTERY_GAUGE_MASK', useRle = supportRle, platforms = [platform], compress = True)
-            resourceStr += make_rle('charging_mask.png', name = 'CHARGING_MASK', useRle = supportRle, platforms = [platform], compress = True)
+            resourceStr += make_rle('battery_gauge_mask.png', name = 'BATTERY_GAUGE_MASK', useRle = supportRle, platforms = [platform])
+            resourceStr += make_rle('charging_mask.png', name = 'CHARGING_MASK', useRle = supportRle, platforms = [platform])
 
         configIn = open('%s/generated_config.h.per_platform_in' % (resourcesDir), 'r').read()
         print >> configH, configIn % {
@@ -468,6 +409,11 @@ def configWatch():
             'doctorsIds' : doctorsIds,
             'slicePoints' : ', '.join(map(str, slicePoints)),
             }
+
+
+    resourceStr += make_rle('mins_background.png', name = 'MINS_BACKGROUND', useRle = supportRle, platforms = targetPlatforms, color = 'bw')
+    resourceStr += make_rle('hours_background.png', name = 'HOURS_BACKGROUND', useRle = supportRle, platforms = targetPlatforms, color = 'bw')
+    resourceStr += make_rle('date_background.png', name = 'DATE_BACKGROUND', useRle = supportRle, platforms = targetPlatforms, color = 'bw')
 
     resourceIn = open('%s/package.json.in' % (rootDir), 'r').read()
     resource = open('%s/package.json' % (rootDir), 'w')
