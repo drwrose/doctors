@@ -287,6 +287,7 @@ def makeDoctors(platform):
 
     doctorsImages = ''
     doctorsIds = ''
+    already_basenames = set()
     for basename in basenames:
         doctorsIds += '{\n'
 
@@ -322,7 +323,9 @@ def makeDoctors(platform):
                 filename = 'build/%s_%s.png' % (basename, platform)
                 image.save('%s/%s' % (resourcesDir, filename))
 
-            doctorsImages += make_rle(filename, name = resource_base, useRle = supportRle, platforms = [platform])
+            if basename not in already_basenames:
+                already_basenames.add(basename)
+                doctorsImages += make_rle(filename, name = resource_base, useRle = supportRle, platforms = [platform])
 
             doctorsIds += 'RESOURCE_ID_%s, ' % (resource_base)
         doctorsIds += '},\n'

@@ -12,9 +12,25 @@
 #include "../resources/generated_config.h"
 #include "../resources/generated_config.c"
 
-#ifdef PBL_ROUND
-#define SCREEN_WIDTH 180
-#define SCREEN_HEIGHT 180
+// frame placements based on screen shape.
+#if defined(PBL_PLATFORM_EMERY)
+// Emery 200x228
+
+GRect mm_layer_box = { { 159, 182 }, { 68, 48 } };
+GRect mins_background_box = { { 0, 4 }, { 68, 42 } };
+GRect mins_mm_text_box = { { 1, 0 }, { 81, 58 } };
+
+GRect hhmm_layer_box = { { 86, 182 }, { 114, 48 } };
+GRect hours_background_box = { { 0, 4 }, { 114, 42 } };
+GRect hours_text_box = { { -20, 0 }, { 68, 48 } };
+GRect mins_hhmm_text_box = { { 48, 0 }, { 132, 48 } };
+
+GRect date_layer_box = { { 0, 194 }, { 68, 34 } };
+GRect date_background_box = { { 0, 0 }, { 68, 34 } };
+GRect date_text_box = { { 0, 0 }, { 68, 34 } };
+
+#elif defined(PBL_ROUND)
+// Round 180x180 (Chalk)
 
 GRect mm_layer_box = { { 44, 151 }, { 92, 29 } };
 GRect mins_background_box = { { 0, 0 }, { 92, 29 } };
@@ -29,10 +45,8 @@ GRect date_layer_box = { { 49, 0 }, { 82, 22 } };
 GRect date_background_box = { { 0, 0 }, { 82, 22 } };
 GRect date_text_box = { { 16, -2 }, { 50, 25 } };
 
-#else  // PBL_ROUND
-
-#define SCREEN_WIDTH 144
-#define SCREEN_HEIGHT 168
+#else
+// Rect 144x168 (Aplite, Basalt, Diorite)
 
 GRect mm_layer_box = { { 94, 134 }, { 50, 35 } };
 GRect mins_background_box = { { 0, 3 }, { 50, 31 } };
@@ -47,7 +61,7 @@ GRect date_layer_box = { { 0, 143 }, { 50, 25 } };
 GRect date_background_box = { { 0, 0 }, { 50, 25 } };
 GRect date_text_box = { { 0, 0 }, { 50, 25 } };
 
-#endif  // PBL_ROUND
+#endif  // shape
 
 // The frequency throughout the day at which the buzzer sounds, in seconds.
 #define BUZZER_FREQ 3600

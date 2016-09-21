@@ -1,3 +1,4 @@
+#include "doctors.h"
 #include <pebble.h>
 #include "battery_gauge.h"
 #include "config_options.h"

@@ -1,3 +1,4 @@
+#include "doctors.h"
 #include <pebble.h>
 #include "bluetooth_indicator.h"
 #include "config_options.h"
