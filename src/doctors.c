@@ -16,7 +16,7 @@
 #if defined(PBL_PLATFORM_EMERY)
 // Emery 200x228
 
-GRect mm_layer_box = { { 159, 182 }, { 68, 48 } };
+GRect mm_layer_box = { { 132, 182 }, { 68, 48 } };
 GRect mins_background_box = { { 0, 4 }, { 68, 42 } };
 GRect mins_mm_text_box = { { 1, 0 }, { 81, 58 } };
 
@@ -75,6 +75,9 @@ GRect date_text_box = { { 0, 0 }, { 50, 25 } };
 // Number of frames of animation
 #define NUM_TRANSITION_FRAMES_HOUR 24
 #define NUM_TRANSITION_FRAMES_STARTUP 10
+
+GFont mm_font;
+GFont date_font;
 
 Window *window;
 
@@ -895,8 +898,6 @@ void mm_layer_update_callback(Layer *me, GContext* ctx) {
     graphics_draw_bitmap_in_rect(ctx, mins_background.bitmap, mins_background_box);
   }
 
-  font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
-
 #ifdef PBL_COLOR
   graphics_context_set_text_color(ctx, GColorDukeBlue);
 #else  // PBL_COLOR
@@ -905,14 +906,14 @@ void mm_layer_update_callback(Layer *me, GContext* ctx) {
 
   // Draw the (possibly blinking) colon.
   if (!config.second_hand || !hide_colon) {
-    graphics_draw_text(ctx, ":", font, mins_mm_text_box,
+    graphics_draw_text(ctx, ":", mm_font, mins_mm_text_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                        NULL);
   }
 
   // draw minutes
   snprintf(buffer, buffer_size, " %02d", minute_value);
-  graphics_draw_text(ctx, buffer, font, mins_mm_text_box,
+  graphics_draw_text(ctx, buffer, mm_font, mins_mm_text_box,
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                      NULL);
 }
@@ -936,8 +937,6 @@ void hhmm_layer_update_callback(Layer *me, GContext* ctx) {
     graphics_draw_bitmap_in_rect(ctx, hours_background.bitmap, hours_background_box);
   }
 
-  font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
-
 #ifdef PBL_COLOR
   graphics_context_set_text_color(ctx, GColorDukeBlue);
 #else  // PBL_COLOR
@@ -946,20 +945,20 @@ void hhmm_layer_update_callback(Layer *me, GContext* ctx) {
 
   // Draw the hours.  We always use 12-hour time, because 12 Doctors.
   snprintf(buffer, buffer_size, "%d", (hour_value ? hour_value : 12));
-  graphics_draw_text(ctx, buffer, font, hours_text_box,
+  graphics_draw_text(ctx, buffer, mm_font, hours_text_box,
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentRight,
                      NULL);
 
   // Draw the (possibly blinking) colon.
   if (!config.second_hand || !hide_colon) {
-    graphics_draw_text(ctx, ":", font, mins_hhmm_text_box,
+    graphics_draw_text(ctx, ":", mm_font, mins_hhmm_text_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                        NULL);
   }
 
   // draw minutes
   snprintf(buffer, buffer_size, " %02d", minute_value);
-  graphics_draw_text(ctx, buffer, font, mins_hhmm_text_box,
+  graphics_draw_text(ctx, buffer, mm_font, mins_hhmm_text_box,
                      GTextOverflowModeTrailingEllipsis, GTextAlignmentLeft,
                      NULL);
 }
@@ -969,7 +968,6 @@ void date_layer_update_callback(Layer *me, GContext* ctx) {
   if (config.show_date) {
     static const int buffer_size = 128;
     char buffer[buffer_size];
-    GFont font;
 
     graphics_context_set_compositing_mode(ctx, GCompOpOr);
 
@@ -980,13 +978,11 @@ void date_layer_update_callback(Layer *me, GContext* ctx) {
       graphics_draw_bitmap_in_rect(ctx, date_background.bitmap, date_background_box);
     }
 
-    font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
-
     graphics_context_set_text_color(ctx, GColorBlack);
     const LangDef *lang = &lang_table[config.display_lang % num_langs];
     const char *weekday_name = lang->weekday_names[day_value];
     snprintf(buffer, buffer_size, "%s %d", weekday_name, date_value);
-    graphics_draw_text(ctx, buffer, font, date_text_box,
+    graphics_draw_text(ctx, buffer, date_font, date_text_box,
                        GTextOverflowModeTrailingEllipsis, GTextAlignmentCenter,
                        NULL);
   }
@@ -1204,6 +1200,14 @@ void handle_init() {
     visible_face[si].face_value = -1;
   }
 
+#ifdef PBL_PLATFORM_EMERY
+  mm_font = fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD);
+  date_font = fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD);
+#else
+  mm_font = fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK);
+  date_font = fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD);
+#endif
+
   window = window_create();
   window_set_background_color(window, GColorWhite);
   struct Layer *root_layer = window_get_root_layer(window);
@@ -1227,7 +1231,10 @@ void handle_init() {
   layer_set_update_proc(date_layer, &date_layer_update_callback);
   layer_add_child(root_layer, date_layer);
 
-#ifdef PBL_ROUND
+#ifdef PBL_PLATFORM_EMERY
+  init_bluetooth_indicator(root_layer, 0, 0);
+  init_battery_gauge(root_layer, 165, 0);
+#elif defined(PBL_ROUND)
   init_bluetooth_indicator(root_layer, 10, 42);
   init_battery_gauge(root_layer, 144, 46);
 #else  // PBL_ROUND
