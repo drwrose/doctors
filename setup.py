@@ -450,7 +450,7 @@ for opt, arg in opts:
         usage(0)
 
 if not targetPlatforms:
-    targetPlatforms = [ "aplite", "basalt", "chalk", "diorite" ]
+    targetPlatforms = [ 'aplite', 'basalt', 'chalk', 'diorite', 'emery' ]
 
 bluetoothSizes = {} # filled in by configWatch()
 
