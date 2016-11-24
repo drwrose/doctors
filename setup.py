@@ -22,7 +22,7 @@ Options:
         Specifies the number of vertical slices of each face.
 
     -p platform[,platform...]
-        Specifies the build platform (aplite, basalt, chalk, diorite).
+        Specifies the build platform (aplite, basalt, chalk, diorite, emery).
 
     -x
         Perform RLE compression of images.
@@ -358,7 +358,13 @@ def configWatch():
         for ti in [1, 2, 3, 4]:
             filename = 'tardis_%02d.png' % (ti)
             name = 'TARDIS_%02d' % (ti)
-            resourceStr += make_rle(filename, name = name, useRle = False, platforms = [platform], compress = False, requirePalette = False)
+            # For most platforms, we'd rather avoid compressing the
+            # Tardis images, because we pull them out of the resource
+            # file multiple times per second, and we want to minimize
+            # wasted CPU utilization.  However, on Emery, resource
+            # size is scarce, so there we compress it anyway.
+            compress = (platform == 'emery')
+            resourceStr += make_rle(filename, name = name, useRle = False, platforms = [platform], compress = compress, requirePalette = False)
 
         for basename in ['dalek', 'k9']:
             filename = '%s.png' % (basename)
