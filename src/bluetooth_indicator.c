@@ -37,17 +37,11 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
   GCompOp fg_mode;
 
 #ifdef PBL_BW
-  GCompOp mask_mode;
-  if (invert ^ config.draw_mode ^ BW_INVERT) {
-    fg_mode = GCompOpSet;
-    mask_mode = GCompOpAnd;
-  } else {
-    fg_mode = GCompOpAnd;
-    mask_mode = GCompOpSet;
-  }
+  fg_mode = GCompOpAnd;
+  GCompOp mask_mode = GCompOpSet;
 #else  // PBL_BW
-  // In Basalt, we always use GCompOpSet because the icon includes its
-  // own alpha channel.
+  // On color watches, we always use GCompOpSet because the icon
+  // includes its own alpha channel.
   fg_mode = GCompOpSet;
 #endif  // PBL_BW
 
