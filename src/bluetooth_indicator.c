@@ -45,7 +45,7 @@ void bluetooth_layer_update_callback(Layer *me, GContext *ctx) {
   fg_mode = GCompOpSet;
 #endif  // PBL_BW
 
-  poll_quiet_time_state();  // Just in case it's recently changed.
+  (void)poll_quiet_time_state();  // Just in case it's recently changed.
   if (!got_bluetooth_state) {
     bluetooth_state = bluetooth_connection_service_peek();
     got_bluetooth_state = true;
@@ -160,14 +160,14 @@ void refresh_bluetooth_indicator() {
   layer_mark_dirty(bluetooth_layer);
 }
 
+#ifndef PBL_PLATFORM_APLITE
 // We have to poll the quiet_time_is_active() state from time to
 // time because Pebble doesn't provide a callback handler for this.
-void poll_quiet_time_state() {
-#ifndef PBL_PLATFORM_APLITE
+bool poll_quiet_time_state() {
   bool new_quiet_time_state = quiet_time_is_active();
   if (quiet_time_state == new_quiet_time_state) {
     // No change.
-    return;
+    return quiet_time_state;
   }
 
   quiet_time_state = new_quiet_time_state;
@@ -176,5 +176,6 @@ void poll_quiet_time_state() {
   if (config.bluetooth_indicator != IM_off) {
     layer_mark_dirty(bluetooth_layer);
   }
-#endif  // PBL_PLATFORM_APLITE
+  return quiet_time_state;
 }
+#endif  // PBL_PLATFORM_APLITE

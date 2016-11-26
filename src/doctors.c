@@ -289,7 +289,9 @@ int check_buzzer() {
     if (last_buzz_hour != -1) {
       // Time to ring the buzzer.
       if (config.hour_buzzer) {
-        vibes_enqueue_custom_pattern(tap);
+        if (!poll_quiet_time_state()) {
+          vibes_enqueue_custom_pattern(tap);
+        }
         //vibes_double_pulse();
       }
     }
@@ -990,6 +992,8 @@ void date_layer_update_callback(Layer *me, GContext* ctx) {
 
 
 void update_time(struct tm *tick_time, bool for_startup) {
+  (void)poll_quiet_time_state();
+
   int face_new, hour_new, minute_new, second_new, day_new, date_new;
 
   hour_new = face_new = tick_time->tm_hour % 12;
