@@ -34,8 +34,8 @@ Options:
 """
 
 def usage(code, msg = ''):
-    print >> sys.stderr, help
-    print >> sys.stderr, msg
+    print(help, file=sys.stderr)
+    print(msg, file=sys.stderr)
     sys.exit(code)
 
 # Attempt to determine the directory in which we're operating.
@@ -278,7 +278,7 @@ def makeDoctors(platform):
 
     slicePoints = [0]
     for slice in range(numSlices):
-        next = (slice + 1) * screenWidth / numSlices
+        next = (slice + 1) * screenWidth // numSlices
         slicePoints.append(next)
 
     buildDir = '%s/build' % (resourcesDir)
@@ -335,16 +335,16 @@ def makeDoctors(platform):
 def configWatch():
     configH = open('%s/generated_config.h' % (resourcesDir), 'w')
     configIn = open('%s/generated_config.h.in' % (resourcesDir), 'r').read()
-    print >> configH, configIn % {
+    print(configIn % {
         'numSlices' : numSlices,
         'supportRle' : int(supportRle),
         'compileDebugging' : int(compileDebugging),
-        }
+        }, file=configH)
 
     configC = open('%s/generated_config.c' % (resourcesDir), 'w')
     configIn = open('%s/generated_config.c.in' % (resourcesDir), 'r').read()
-    print >> configC, configIn % {
-        }
+    print(configIn % {
+        }, file=configC)
 
     resourceStr = ''
     for platform in targetPlatforms:
@@ -398,7 +398,7 @@ def configWatch():
             resourceStr += make_rle('charging_mask.png', name = 'CHARGING_MASK', useRle = supportRle, platforms = [platform])
 
         configIn = open('%s/generated_config.h.per_platform_in' % (resourcesDir), 'r').read()
-        print >> configH, configIn % {
+        print(configIn % {
             'platformUpper' : platform.upper(),
             'screenWidth' : screenWidth,
             'screenHeight' : screenHeight,
@@ -414,14 +414,14 @@ def configWatch():
             'batteryGaugeVshift' : batteryGaugeSizes[shape][2][1],
             'bluetoothSizeX' : bluetoothSizes[platform][0],
             'bluetoothSizeY' : bluetoothSizes[platform][1],
-            }
+            }, file=configH)
 
         configIn = open('%s/generated_config.c.per_platform_in' % (resourcesDir), 'r').read()
-        print >> configC, configIn % {
+        print(configIn % {
             'platformUpper' : platform.upper(),
             'doctorsIds' : doctorsIds,
             'slicePoints' : ', '.join(map(str, slicePoints)),
-            }
+            }, file=configC)
 
 
     resourceStr += make_rle('mins_background.png', name = 'MINS_BACKGROUND', useRle = supportRle, platforms = targetPlatforms, color = 'bw')
@@ -431,16 +431,16 @@ def configWatch():
     resourceIn = open('%s/package.json.in' % (rootDir), 'r').read()
     resource = open('%s/package.json' % (rootDir), 'w')
 
-    print >> resource, resourceIn % {
+    print(resourceIn % {
         'targetPlatforms' : ', '.join(enquoteStrings(targetPlatforms)),
         'resourceStr' : resourceStr,
-        }
+        }, file=resource)
 
 
 # Main.
 try:
     opts, args = getopt.getopt(sys.argv[1:], 's:p:dxh')
-except getopt.error, msg:
+except getopt.error as msg:
     usage(1, msg)
 
 numSlices = 1

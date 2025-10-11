@@ -17,7 +17,7 @@ pal = pal.convert("P", palette = PIL.Image.ADAPTIVE)
 def make_palette(filename):
     im = PIL.Image.open(filename)
     if im.mode != 'RGB':
-        print "skipping"
+        print("skipping")
         return
 
     # First, convert it to the 64-color Pebble Time palette.
@@ -41,5 +41,5 @@ def make_palette(filename):
     im.save('palette/' + filename)
 
 for filename in sys.argv[1:]:
-    print filename
+    print(filename)
     make_palette(filename)

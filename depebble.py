@@ -1,4 +1,4 @@
-import sys, zipfile, json, cStringIO
+import sys, zipfile, json, io
 sys.path.append('/Users/drose/pebble-dev/PebbleSDK-current/Pebble/common/tools')
 import pbpack
 
@@ -20,11 +20,11 @@ mlist = aid['resources']['media']
 for platform in platforms:
     prefix = subdir_prefixes[platform]
     resourcesData = pbw.read(prefix + 'app_resources.pbpack', 'r')
-    resources = cStringIO.StringIO(resourcesData)
+    resources = io.StringIO(resourcesData)
     rpack = pbpack.ResourcePack()
 
     rpd = rpack.deserialize(resources)
-    print rpd
+    print(rpd)
 
     mi = 0
     ri = 0
@@ -41,8 +41,8 @@ for platform in platforms:
             data.append(rpd.contents[ri])
             ri += 1
 
-        print '%s, %s, %s: %s' % (platform, name, filename, map(len, data))
+        print('%s, %s, %s: %s' % (platform, name, filename, list(map(len, data))))
 
-    print '%s, %s, %s' % (platform, mi, ri)
+    print('%s, %s, %s' % (platform, mi, ri))
 
 
